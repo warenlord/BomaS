@@ -34,6 +34,8 @@ export default async function ChatConversationPage({
     documentTitle = document?.title ?? null;
   }
 
+  const firstName = (user.user_metadata?.full_name as string | undefined)?.split(" ")[0];
+
   return (
     <ChatWindow
       conversationId={conversation.id}
@@ -41,6 +43,7 @@ export default async function ChatConversationPage({
       documentTitle={documentTitle}
       initialMessages={toUIMessages(messages)}
       autoSendText={messages.length === 0 ? autoSend : undefined}
+      greeting={firstName ? `Qu'est-ce qu'on révise aujourd'hui, ${firstName} ?` : undefined}
     />
   );
 }

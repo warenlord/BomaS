@@ -94,7 +94,7 @@ export interface CreditUsageStats {
 }
 
 /**
- * Calcule les jauges d'utilisation jour / semaine / mois façon Claude :
+ * Calcule les jauges d'utilisation jour / semaine / mois :
  * le quota mensuel est réparti en une quote-part journalière et hebdomadaire
  * indicative, comparée à la consommation réelle sur la fenêtre glissante.
  */
