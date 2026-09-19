@@ -29,7 +29,9 @@ export function AppTopbar({
           <Zap className="size-3.5 text-primary" />
           {formatCredits(balance)} crédits
         </Link>
-        <UserMenu email={email} fullName={fullName} />
+        <div className="md:hidden">
+          <UserMenu email={email} fullName={fullName} />
+        </div>
       </div>
     </header>
   );

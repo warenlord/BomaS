@@ -27,7 +27,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-full flex-1">
-      <AppSidebar stats={stats} planName={plan.name} conversations={conversations.slice(0, 12)} />
+      <AppSidebar
+        stats={stats}
+        planName={plan.name}
+        conversations={conversations.slice(0, 12)}
+        email={user.email ?? ""}
+        fullName={fullName}
+      />
 
       <div className="flex min-h-full flex-1 flex-col">
         <AppTopbar email={user.email ?? ""} fullName={fullName} balance={stats.balance} />

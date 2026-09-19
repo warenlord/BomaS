@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GraduationCap, SquarePen, MessageSquare, FileText, ListChecks, CreditCard } from "lucide-react";
 import { CreditMeter } from "@/components/credits/credit-meter";
+import { UserMenu } from "@/components/layout/user-menu";
 import type { CreditUsageStats } from "@/lib/credits/ledger";
 import { cn } from "@/lib/utils";
 
-const SECTION_NAV_ITEMS = [
+const NAV_ITEMS = [
+  { href: "/chat/new", label: "Nouvelle conversation", icon: SquarePen },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/tools", label: "Outils", icon: ListChecks },
   { href: "/billing", label: "Crédits", icon: CreditCard },
@@ -23,34 +25,31 @@ export function AppSidebar({
   stats,
   planName,
   conversations,
+  email,
+  fullName,
 }: {
   stats: CreditUsageStats;
   planName: string;
   conversations: SidebarConversation[];
+  email: string;
+  fullName: string | null;
 }) {
   const pathname = usePathname();
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 bg-sidebar text-sidebar-foreground md:flex">
-      <div className="flex h-16 items-center justify-between gap-2 px-4">
+      <div className="flex h-16 items-center px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <span className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <GraduationCap className="size-5" />
           </span>
           BomaSchool
         </Link>
-        <Link
-          href="/chat/new"
-          title="Nouvelle conversation"
-          className="flex size-8 items-center justify-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <SquarePen className="size-[18px]" />
-        </Link>
       </div>
 
       <nav className="space-y-0.5 px-3">
-        {SECTION_NAV_ITEMS.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+        {NAV_ITEMS.map((item) => {
+          const active = pathname === item.href || (item.href !== "/chat/new" && pathname.startsWith(`${item.href}/`));
           return (
             <Link
               key={item.href}
@@ -105,11 +104,11 @@ export function AppSidebar({
         </div>
       </div>
 
-      <div className="border-t border-sidebar-border p-4">
-        <Link href="/billing" className="mb-2 block text-xs font-medium text-sidebar-foreground/60 hover:underline">
-          Plan {planName}
-        </Link>
-        <CreditMeter stats={stats} compact />
+      <div className="border-t border-sidebar-border p-3">
+        <div className="mb-1 px-1">
+          <CreditMeter stats={stats} compact />
+        </div>
+        <UserMenu email={email} fullName={fullName} planName={planName} variant="row" />
       </div>
     </aside>
   );
