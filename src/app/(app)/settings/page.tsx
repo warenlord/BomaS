@@ -4,6 +4,7 @@ import { getUserSubscription } from "@/lib/billing/subscription";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/auth/submit-button";
+import { ThemeToggle } from "@/components/settings/theme-toggle";
 import { updateProfileAction } from "@/lib/settings/actions";
 import { signOutAction } from "@/lib/auth/actions";
 import { formatDateShort } from "@/lib/format";
@@ -41,6 +42,11 @@ export default async function SettingsPage() {
           <Input id="fullName" name="fullName" defaultValue={fullName} placeholder="Ton nom" />
           <SubmitButton className="mt-3 w-auto">Enregistrer</SubmitButton>
         </form>
+
+        <div className="border-t border-border/60 pt-6">
+          <p className="mb-2 text-sm font-medium">Apparence</p>
+          <ThemeToggle />
+        </div>
       </div>
 
       <form action={signOutAction} className="mt-6">

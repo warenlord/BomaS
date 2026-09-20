@@ -60,7 +60,7 @@ export function ChatWindow({
 
   if (isEmpty) {
     return (
-      <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col justify-center px-4 pb-24 md:h-[calc(100vh-4rem)]">
+      <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col justify-center px-4 pb-24 md:h-screen">
         <div className="flex flex-col items-center gap-8">
           <h1 className="text-center text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
             {greeting ?? "Qu'est-ce qu'on révise aujourd'hui ?"}
@@ -89,7 +89,7 @@ export function ChatWindow({
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col md:h-[calc(100vh-4rem)]">
+    <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col md:h-screen">
       {documentTitle && (
         <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 text-sm text-muted-foreground">
           <FileText className="size-4 text-primary" />
