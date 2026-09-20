@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test BomaSchool</title>
+<meta name="description" content="Checklist de test pour les étudiants qui essaient BomaSchool avant le lancement.">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #faf9f6;
+    --surface: #ffffff;
+    --surface-2: #f2f0ea;
+    --border: #e3ded2;
+    --text: #1b1f1c;
+    --text-muted: #5c6259;
+    --green: #1a7a4f;
+    --green-ink: #0f5738;
+    --green-tint: #e6f2ec;
+    --amber: #c8871a;
+    --amber-tint: #fbf0dd;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141815;
+      --surface: #1c211d;
+      --surface-2: #232823;
+      --border: #333930;
+      --text: #ecece6;
+      --text-muted: #a3a89c;
+      --green: #4fbf88;
+      --green-ink: #8fe0b6;
+      --green-tint: #16281f;
+      --amber: #e0ab52;
+      --amber-tint: #2c2415;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    padding-inline: 16px;
+    padding-block: 28px 64px;
+  }
+  h1, h2 { font-family: "Sora", system-ui, sans-serif; }
+
+  .wrap { max-width: 640px; margin-inline: auto; }
+
+  header.top { margin-bottom: 22px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--green-ink); background: var(--green-tint);
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 12px;
+  }
+  h1 { font-size: 26px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.01em; text-wrap: balance; }
+  .lede { color: var(--text-muted); margin: 0; font-size: 14.5px; }
+
+  .progress-bar-outer {
+    position: sticky; top: 0;
+    z-index: 5; background: var(--bg);
+    padding-block: 10px 14px; margin-bottom: 4px;
+  }
+  .progress-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .progress-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .progress-count { font-size: 12px; font-weight: 700; color: var(--green-ink); font-variant-numeric: tabular-nums; }
+  .progress-track { height: 7px; border-radius: 999px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border); }
+  .progress-fill { height: 100%; background: var(--green); border-radius: 999px; transition: width 0.3s ease; width: 0%; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-block: 14px;
+  }
+  .card label.field { display: block; margin-bottom: 12px; }
+  .card label.field:last-child { margin-bottom: 0; }
+  .field-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; }
+  input[type="text"], select, textarea {
+    width: 100%; font: inherit; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 420px) { .two-col { grid-template-columns: 1fr; } }
+
+  section.block { margin-block: 26px; }
+  .block-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .block-num {
+    font-family: "Sora", sans-serif; font-weight: 800; font-size: 13px;
+    color: var(--green-ink); background: var(--green-tint);
+    width: 26px; height: 26px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .block-head h2 { font-size: 17px; font-weight: 700; margin: 0; }
+  .block-intro { color: var(--text-muted); font-size: 13.5px; margin: 6px 0 12px 36px; }
+
+  ul.tests { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  li.test {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 11px;
+    padding: 11px 13px;
+  }
+  li.test.done { border-color: var(--green); background: var(--green-tint); }
+  .test-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+  .test-row input[type="checkbox"] {
+    appearance: none; width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px;
+    border: 2px solid var(--border); border-radius: 6px; background: var(--surface);
+    display: grid; place-content: center; cursor: pointer;
+  }
+  .test-row input[type="checkbox"]:checked { background: var(--green); border-color: var(--green); }
+  .test-row input[type="checkbox"]:checked::after {
+    content: ""; width: 10px; height: 6px; border-left: 2.5px solid white; border-bottom: 2.5px solid white;
+    transform: rotate(-45deg) translateY(-1px);
+  }
+  .test-text { flex: 1; }
+  .test-action { font-weight: 500; }
+  .test-expected { display: block; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .test-expected b { color: var(--text); font-weight: 600; }
+  .note-input {
+    margin-top: 8px; margin-left: 30px; width: calc(100% - 30px);
+    font-size: 13px; padding: 6px 9px;
+  }
+  .note-input::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+  .callout {
+    display: flex; gap: 10px; padding: 12px 14px; border-radius: 11px;
+    font-size: 13px; margin-block: 14px;
+  }
+  .callout.amber { background: var(--amber-tint); color: var(--text); border: 1px solid rgba(200,135,26,0.4); }
+  .callout b { color: var(--amber); }
+
+  .report-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-top: 30px; }
+  .report-card h2 { font-size: 18px; margin: 0 0 4px; }
+  .report-card .lede { margin-bottom: 16px; }
+
+  button.primary {
+    font: inherit; font-weight: 700; font-size: 14.5px; color: white; background: var(--green);
+    border: none; border-radius: 10px; padding: 12px 18px; cursor: pointer; width: 100%;
+    transition: filter 0.15s ease;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.primary:active { filter: brightness(0.95); }
+
+  #reportOut {
+    width: 100%; min-height: 160px; margin-top: 14px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12.5px; white-space: pre-wrap;
+  }
+  .copy-status { font-size: 12.5px; color: var(--green-ink); font-weight: 600; margin-top: 8px; min-height: 16px; }
+
+  footer.foot { text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 34px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <span class="eyebrow">🇬🇦 Test étudiant · BomaSchool</span>
+    <h1>Aide-nous à tester BomaSchool</h1>
+    <p class="lede">Suis chaque étape sur cette application, coche au fur et à mesure, et note ce qui bloque. Ça prend environ 20 minutes.</p>
+  </header>
+
+  <div class="progress-bar-outer">
+    <div class="progress-row">
+      <span class="progress-label">Progression</span>
+      <span class="progress-count"><span id="progCount">0</span>/<span id="progTotal">0</span> tests</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+  </div>
+
+  <div class="card">
+    <label class="field">
+      <span class="field-label">Ton prénom</span>
+      <input type="text" id="testerName" placeholder="Ex : Aïcha" data-persist>
+    </label>
+    <div class="two-col">
+      <label class="field">
+        <span class="field-label">Appareil utilisé</span>
+        <select id="testerDevice" data-persist>
+          <option value="">Choisir...</option>
+          <option>Téléphone</option>
+          <option>Ordinateur</option>
+          <option>Les deux</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Navigateur</span>
+        <select id="testerBrowser" data-persist>
+          <option value="">Choisir...</option>
+          <option>Chrome</option>
+          <option>Safari</option>
+          <option>Firefox</option>
+          <option>Autre</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="callout amber">
+    <span>⚠️</span>
+    <span><b>Avant de commencer :</b> utilise ton vrai email, tu vas recevoir un lien de confirmation dessus. Le paiement n'est pas encore actif — c'est normal si les boutons "Choisir ce plan" affichent juste un message, pas besoin de tester le paiement.</span>
+  </div>
+
+  <!-- Section 1 -->
+  <section class="block" data-section="Inscription et connexion">
+    <div class="block-head"><span class="block-num">1</span><h2>Inscription et connexion</h2></div>
+    <p class="block-intro">Crée ton compte comme le ferait un vrai étudiant.</p>
+    <ul class="tests">
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Crée un compte avec ton email et un mot de passe.</span><span class="test-expected">Résultat attendu : tu arrives sur une page <b>"Vérifie ta boîte mail"</b>.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Ouvre l'email reçu et clique sur le lien de confirmation.</span><span class="test-expected">Résultat attendu : tu es redirigé et connecté automatiquement.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Déconnecte-toi (menu profil) puis reconnecte-toi avec le même email/mot de passe.</span><span class="test-expected">Résultat attendu : connexion normale, tu retrouves ton compte.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Essaie "Continuer avec Google" (avec un compte Google différent si possible).</span><span class="test-expected">Résultat attendu : connexion directe, sans mot de passe.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Regarde ton solde de crédits juste après l'inscription.</span><span class="test-expected">Résultat attendu : <b>50 crédits</b> disponibles sur le plan Gratuit.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+    </ul>
+  </section>
+
+  <!-- Section 2 -->
+  <section class="block" data-section="Chat IA">
+    <div class="block-head"><span class="block-num">2</span><h2>Chat IA</h2></div>
+    <p class="block-intro">Le cœur de l'app : discuter avec l'assistant.</p>
+    <ul class="tests">
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Démarre une nouvelle conversation et pose une vraie question de cours (ex : "Explique-moi la photosynthèse").</span><span class="test-expected">Résultat attendu : la réponse s'écrit <b>progressivement</b>, mot par mot, pas d'un coup.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Clique sur une des suggestions proposées à l'écran d'accueil du chat.</span><span class="test-expected">Résultat attendu : elle se place dans le champ de message ou se lance directement.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Retourne dans l'historique (barre latérale ou onglet Chat) et rouvre la conversation.</span><span class="test-expected">Résultat attendu : elle apparaît dans la liste, avec un titre lié à ta question.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Vérifie que ton solde de crédits a baissé après ta question.</span><span class="test-expected">Résultat attendu : <b>-1 crédit</b> par question posée.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+    </ul>
+  </section>
+
+  <!-- Section 3 -->
+  <section class="block" data-section="Documents">
+    <div class="block-head"><span class="block-num">3</span><h2>Import de documents</h2></div>
+    <p class="block-intro">Importe un vrai cours (PDF ou Word) et pose des questions dessus.</p>
+    <ul class="tests">
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Va sur "Documents" et importe un PDF ou fichier Word (un cours, un TD...).</span><span class="test-expected">Résultat attendu : le statut passe de "En attente" à <b>"Prêt"</b> en quelques secondes.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Clique sur "Discuter du document" et pose une question sur son contenu précis.</span><span class="test-expected">Résultat attendu : la réponse cite des <b>"Extrait 1", "Extrait 2"</b>... du document.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Essaie d'importer un 4ᵉ document (la limite gratuite est de 3).</span><span class="test-expected">Résultat attendu : un message clair explique la limite, pas d'erreur bizarre.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+    </ul>
+  </section>
+
+  <!-- Section 4 -->
+  <section class="block" data-section="Outils">
+    <div class="block-head"><span class="block-num">4</span><h2>Outils de génération</h2></div>
+    <p class="block-intro">À partir d'un document déjà importé, ou en collant directement du texte de cours.</p>
+    <ul class="tests">
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Génère un <b>QCM</b> de 10 questions, réponds à toutes les questions.</span><span class="test-expected">Résultat attendu : un <b>score final</b> s'affiche à la fin (ex : 7/10).</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Génère des <b>flashcards</b> et clique sur une carte.</span><span class="test-expected">Résultat attendu : la carte se retourne pour montrer la réponse.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Génère un <b>résumé</b>.</span><span class="test-expected">Résultat attendu : un texte de synthèse + une liste de points clés.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Génère une <b>fiche de révision</b>.</span><span class="test-expected">Résultat attendu : plusieurs sections claires (définitions, notions clés...).</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Génère un <b>examen blanc</b> et regarde un corrigé.</span><span class="test-expected">Résultat attendu : questions + corrigés types affichés.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+    </ul>
+  </section>
+
+  <!-- Section 5 -->
+  <section class="block" data-section="Crédits et abonnement">
+    <div class="block-head"><span class="block-num">5</span><h2>Crédits et abonnement</h2></div>
+    <p class="block-intro">Vérifier que le système de crédits est cohérent.</p>
+    <ul class="tests">
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Va sur la page "Crédits" et regarde les jauges (ce mois, cette semaine, aujourd'hui).</span><span class="test-expected">Résultat attendu : les chiffres sont cohérents avec ce que tu as utilisé.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Regarde les 4 plans et les 3 packs de crédits proposés.</span><span class="test-expected">Résultat attendu : prix et quantités de crédits affichés clairement, en FCFA.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+    </ul>
+  </section>
+
+  <!-- Section 6 -->
+  <section class="block" data-section="Paramètres">
+    <div class="block-head"><span class="block-num">6</span><h2>Paramètres</h2></div>
+    <p class="block-intro">Le petit confort qui fait la différence.</p>
+    <ul class="tests">
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Modifie ton nom complet dans les Paramètres et enregistre.</span><span class="test-expected">Résultat attendu : le nouveau nom s'affiche bien (ex : dans le menu profil).</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Essaie les 3 modes d'affichage : Clair, Sombre, Système.</span><span class="test-expected">Résultat attendu : toute l'interface change bien de couleurs, rien d'illisible.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+      <li class="test"><label class="test-row"><input type="checkbox" data-persist><span class="test-text"><span class="test-action">Si tu es sur téléphone : vérifie la barre de navigation en bas de l'écran (Chat, Documents, Outils, Crédits).</span><span class="test-expected">Résultat attendu : tous les onglets fonctionnent, rien n'est coupé par le clavier.</span></span></label><input type="text" class="note-input" placeholder="Note un souci si besoin..." data-persist></li>
+    </ul>
+  </section>
+
+  <div class="report-card">
+    <h2>Ton rapport final</h2>
+    <p class="lede">Une fois les tests terminés, remplis ça puis envoie le rapport à Warren (copier-coller sur WhatsApp par exemple).</p>
+
+    <label class="field">
+      <span class="field-label">Note globale sur 10</span>
+      <input type="text" id="scoreOut" inputmode="numeric" placeholder="Ex : 8" data-persist>
+    </label>
+    <label class="field">
+      <span class="field-label">Bugs ou blocages rencontrés</span>
+      <textarea id="bugsOut" placeholder="Décris ce qui n'a pas marché, avec le plus de détails possible..." data-persist></textarea>
+    </label>
+    <label class="field">
+      <span class="field-label">Suggestions / ce qui te plaît</span>
+      <textarea id="suggestionsOut" placeholder="Une idée d'amélioration, un truc que tu as adoré..." data-persist></textarea>
+    </label>
+
+    <button class="primary" id="genReport">Générer mon rapport</button>
+    <div class="copy-status" id="copyStatus"></div>
+    <textarea id="reportOut" readonly hidden></textarea>
+  </div>
+
+  <footer class="foot">BomaSchool · merci d'aider à améliorer l'app avant le lancement 🙏</footer>
+</div>
+
+<script>
+(function () {
+  var STORAGE_KEY = "bomaschool-test-checklist-v1";
+
+  function safeGet() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+    catch (e) { return {}; }
+  }
+  function safeSet(data) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    catch (e) {}
+  }
+
+  var persistEls = Array.prototype.slice.call(document.querySelectorAll("[data-persist]"));
+  persistEls.forEach(function (el, i) { if (!el.id) el.id = "persist-" + i; });
+
+  var saved = safeGet();
+  persistEls.forEach(function (el) {
+    var v = saved[el.id];
+    if (v === undefined) return;
+    if (el.type === "checkbox") el.checked = v;
+    else el.value = v;
+  });
+
+  function persistAll() {
+    var data = {};
+    persistEls.forEach(function (el) {
+      data[el.id] = el.type === "checkbox" ? el.checked : el.value;
+    });
+    safeSet(data);
+  }
+
+  var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.test-row input[type="checkbox"]'));
+
+  function updateProgress() {
+    var total = checkboxes.length;
+    var done = checkboxes.filter(function (c) { return c.checked; }).length;
+    document.getElementById("progCount").textContent = done;
+    document.getElementById("progTotal").textContent = total;
+    document.getElementById("progFill").style.width = (total ? (done / total * 100) : 0) + "%";
+    checkboxes.forEach(function (c) {
+      var li = c.closest("li.test");
+      if (li) li.classList.toggle("done", c.checked);
+    });
+  }
+
+  persistEls.forEach(function (el) {
+    el.addEventListener("change", function () { persistAll(); updateProgress(); });
+    el.addEventListener("input", persistAll);
+  });
+
+  updateProgress();
+
+  document.getElementById("genReport").addEventListener("click", function () {
+    var name = document.getElementById("testerName").value || "(non renseigné)";
+    var device = document.getElementById("testerDevice").value || "(non renseigné)";
+    var browser = document.getElementById("testerBrowser").value || "(non renseigné)";
+    var score = document.getElementById("scoreOut").value || "(non renseignée)";
+    var bugs = document.getElementById("bugsOut").value.trim() || "Aucun bug signalé.";
+    var suggestions = document.getElementById("suggestionsOut").value.trim() || "Aucune suggestion.";
+
+    var lines = [];
+    lines.push("RAPPORT DE TEST — BomaSchool");
+    lines.push("Testeur : " + name + " · " + device + " · " + browser);
+    lines.push("Note globale : " + score + "/10");
+    lines.push("");
+
+    var sections = Array.prototype.slice.call(document.querySelectorAll("section.block"));
+    sections.forEach(function (section) {
+      var title = section.getAttribute("data-section");
+      lines.push("— " + title + " —");
+      var items = Array.prototype.slice.call(section.querySelectorAll("li.test"));
+      items.forEach(function (li) {
+        var cb = li.querySelector('input[type="checkbox"]');
+        var action = li.querySelector(".test-action").textContent.trim();
+        var note = li.querySelector(".note-input").value.trim();
+        lines.push((cb.checked ? "[x] " : "[ ] ") + action + (note ? "  → note : " + note : ""));
+      });
+      lines.push("");
+    });
+
+    lines.push("Bugs rencontrés :");
+    lines.push(bugs);
+    lines.push("");
+    lines.push("Suggestions :");
+    lines.push(suggestions);
+
+    var report = lines.join("\n");
+    var out = document.getElementById("reportOut");
+    out.hidden = false;
+    out.value = report;
+
+    var status = document.getElementById("copyStatus");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(report).then(function () {
+        status.textContent = "✓ Rapport copié — colle-le dans WhatsApp ou un email.";
+      }).catch(function () {
+        status.textContent = "Copie manuelle : sélectionne le texte ci-dessous.";
+        out.select();
+      });
+    } else {
+      status.textContent = "Copie manuelle : sélectionne le texte ci-dessous.";
+      out.select();
+    }
+  });
+})();
+</script>
+</body>
+</html>
