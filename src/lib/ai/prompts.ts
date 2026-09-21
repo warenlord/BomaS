@@ -68,11 +68,12 @@ export const examSchema = z.object({
       z.object({
         question: z.string().min(1),
         type: z.enum(["qcm", "open"]),
-        // .nullish() plutôt que .optional() : le modèle renvoie parfois
-        // explicitement `null` pour une question ouverte au lieu d'omettre
-        // le champ, ce que .optional() seul rejette (undefined uniquement).
-        options: z.array(z.string().min(1)).nullish(),
-        correctIndex: z.number().int().nullish(),
+        // .nullable() (pas .optional()) : le mode "structured outputs"
+        // d'OpenAI exige que chaque champ soit présent (donc pas de champ
+        // optionnel au sens JSON Schema), mais sa valeur peut être `null`
+        // pour une question ouverte qui n'a pas d'options à choix multiple.
+        options: z.array(z.string().min(1)).nullable(),
+        correctIndex: z.number().int().nullable(),
         modelAnswer: z.string().min(1),
         points: z.number().min(0),
       }),
