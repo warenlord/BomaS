@@ -1,6 +1,8 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CreditFeature, Database } from "@/lib/types/database.types";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { createClient } from "@/lib/supabase/server";
 
 export class InsufficientCreditsError extends Error {
   constructor(public readonly required: number, public readonly available: number) {
@@ -146,3 +148,12 @@ export async function getUsageStats(
     weeklyPercentUsed: Math.min(100, Math.round((usedThisWeek / weeklyBudget) * 100)),
   };
 }
+
+/**
+ * Variante mémorisée par requête : le layout (sidebar) et certaines pages
+ * ont besoin des mêmes statistiques d'utilisation pour la même requête.
+ */
+export const getCachedUsageStats = cache(async (userId: string) => {
+  const supabase = await createClient();
+  return getUsageStats(supabase, userId);
+});

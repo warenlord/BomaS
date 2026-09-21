@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { createClient } from "@/lib/supabase/server";
-import { getUsageStats } from "@/lib/credits/ledger";
-import { getUserSubscription } from "@/lib/billing/subscription";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getCachedUsageStats } from "@/lib/credits/ledger";
+import { getCachedUserSubscription } from "@/lib/billing/subscription";
 import { PLANS, CREDIT_PACKS } from "@/lib/billing/plans";
 import { CreditMeter } from "@/components/credits/credit-meter";
 import { CheckoutButton } from "@/components/billing/checkout-button";
@@ -11,15 +11,12 @@ import { formatFcfa, formatCredits, formatDateShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export default async function BillingPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const [stats, { plan, subscription }] = await Promise.all([
-    getUsageStats(supabase, user.id),
-    getUserSubscription(supabase, user.id),
+    getCachedUsageStats(user.id),
+    getCachedUserSubscription(user.id),
   ]);
 
   return (

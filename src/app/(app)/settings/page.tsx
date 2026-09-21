@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getUserSubscription } from "@/lib/billing/subscription";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getCachedUserSubscription } from "@/lib/billing/subscription";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/auth/submit-button";
@@ -10,13 +10,10 @@ import { signOutAction } from "@/lib/auth/actions";
 import { formatDateShort } from "@/lib/format";
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const { plan } = await getUserSubscription(supabase, user.id);
+  const { plan } = await getCachedUserSubscription(user.id);
   const fullName = (user.user_metadata?.full_name as string | undefined) ?? "";
 
   return (

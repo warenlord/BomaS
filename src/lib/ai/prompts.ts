@@ -68,8 +68,11 @@ export const examSchema = z.object({
       z.object({
         question: z.string().min(1),
         type: z.enum(["qcm", "open"]),
-        options: z.array(z.string().min(1)).optional(),
-        correctIndex: z.number().int().optional(),
+        // .nullish() plutôt que .optional() : le modèle renvoie parfois
+        // explicitement `null` pour une question ouverte au lieu d'omettre
+        // le champ, ce que .optional() seul rejette (undefined uniquement).
+        options: z.array(z.string().min(1)).nullish(),
+        correctIndex: z.number().int().nullish(),
         modelAnswer: z.string().min(1),
         points: z.number().min(0),
       }),

@@ -46,5 +46,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
   }
 
-  return Response.json({ score, total });
+  // Le corrigé (bonne réponse + explication) n'est renvoyé qu'ici, une fois
+  // les réponses de l'étudiant déjà soumises et notées côté serveur.
+  const corrections = content.questions.map((q) => ({
+    correctIndex: q.correctIndex,
+    explanation: q.explanation,
+  }));
+
+  return Response.json({ score, total, corrections });
 }

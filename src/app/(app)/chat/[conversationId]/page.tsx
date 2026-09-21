@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getConversation, getConversationMessages } from "@/lib/chat/queries";
 import { toUIMessages } from "@/lib/chat/format";
 import { ChatWindow } from "@/components/chat/chat-window";
@@ -13,11 +14,10 @@ export default async function ChatConversationPage({
 }) {
   const { conversationId } = await params;
   const { autoSend } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const supabase = await createClient();
 
   const conversation = await getConversation(supabase, conversationId);
   if (!conversation || conversation.user_id !== user.id) notFound();

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { AlertCircle, FileText } from "lucide-react";
@@ -28,6 +29,7 @@ export function ChatWindow({
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
+  const router = useRouter();
 
   const { messages, sendMessage, status, error } = useChat<ChatUIMessage>({
     id: conversationId,
@@ -36,6 +38,12 @@ export function ChatWindow({
       api: "/api/chat",
       body: { conversationId, documentId: documentId ?? undefined },
     }),
+    onFinish: () => {
+      // Le crédit vient d'être débité côté serveur : on rafraîchit les
+      // données serveur (jauge de crédits dans la sidebar, historique...)
+      // sans perdre l'état de streaming déjà affiché côté client.
+      router.refresh();
+    },
   });
 
   const isBusy = status === "submitted" || status === "streaming";

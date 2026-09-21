@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { useObject } from "@ai-sdk/react";
 import type { DeepPartial } from "ai";
 import type { z } from "zod";
@@ -32,6 +33,7 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
 }) {
   const [text, setText] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const router = useRouter();
 
   const { object, submit, isLoading, error } = useObject({
     api: `/api/generate/${type}`,
@@ -51,6 +53,9 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
           if (data.warning === "INSUFFICIENT_CREDITS_NOT_CHARGED") {
             toast.warning("Solde de crédits insuffisant : ce contenu n'a pas pu être décompté correctement.");
           }
+          // Le crédit vient d'être débité côté serveur : on rafraîchit la
+          // jauge affichée dans la sidebar sans perdre le résultat déjà généré.
+          router.refresh();
         }
       } catch {
         toast.error("Le contenu a été généré mais n'a pas pu être sauvegardé.");

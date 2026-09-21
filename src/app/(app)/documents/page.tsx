@@ -1,23 +1,22 @@
 import { redirect } from "next/navigation";
 import { FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { listDocuments } from "@/lib/documents/queries";
-import { getUserSubscription } from "@/lib/billing/subscription";
+import { getCachedUserSubscription } from "@/lib/billing/subscription";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { DocumentStatusBadge } from "@/components/documents/status-badge";
 import { DocumentActions } from "@/components/documents/document-actions";
 import { formatDateShort } from "@/lib/format";
 
 export default async function DocumentsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  const supabase = await createClient();
   const [documents, { plan }] = await Promise.all([
     listDocuments(supabase, user.id),
-    getUserSubscription(supabase, user.id),
+    getCachedUserSubscription(user.id),
   ]);
 
   return (

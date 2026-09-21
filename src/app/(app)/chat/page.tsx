@@ -1,18 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MessageSquarePlus, MessageSquare, FileText } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import { listConversations } from "@/lib/chat/queries";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getCachedConversations } from "@/lib/chat/queries";
 import { formatDateShort } from "@/lib/format";
 
 export default async function ChatHistoryPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const conversations = await listConversations(supabase, user.id);
+  const conversations = await getCachedConversations(user.id);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">

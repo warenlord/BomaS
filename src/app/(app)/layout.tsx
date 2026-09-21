@@ -1,26 +1,23 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getUsageStats } from "@/lib/credits/ledger";
-import { getUserSubscription } from "@/lib/billing/subscription";
-import { listConversations } from "@/lib/chat/queries";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getCachedUsageStats } from "@/lib/credits/ledger";
+import { getCachedUserSubscription } from "@/lib/billing/subscription";
+import { getCachedConversations } from "@/lib/chat/queries";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
   const [stats, { plan }, conversations] = await Promise.all([
-    getUsageStats(supabase, user.id),
-    getUserSubscription(supabase, user.id),
-    listConversations(supabase, user.id),
+    getCachedUsageStats(user.id),
+    getCachedUserSubscription(user.id),
+    getCachedConversations(user.id),
   ]);
 
   const fullName = (user.user_metadata?.full_name as string | undefined) ?? null;

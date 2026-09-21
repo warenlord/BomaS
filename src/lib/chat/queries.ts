@@ -1,5 +1,7 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database.types";
+import { createClient } from "@/lib/supabase/server";
 
 export async function createConversation(
   supabase: SupabaseClient<Database>,
@@ -31,6 +33,15 @@ export async function listConversations(supabase: SupabaseClient<Database>, user
   if (error) throw error;
   return data;
 }
+
+/**
+ * Variante mémorisée par requête : le layout (sidebar) et la page /chat
+ * demandent tous deux la liste des conversations pour la même requête.
+ */
+export const getCachedConversations = cache(async (userId: string) => {
+  const supabase = await createClient();
+  return listConversations(supabase, userId);
+});
 
 export async function getConversation(supabase: SupabaseClient<Database>, conversationId: string) {
   const { data, error } = await supabase.from("conversations").select("*").eq("id", conversationId).single();

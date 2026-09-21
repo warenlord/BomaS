@@ -1,49 +1,45 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { DeepPartial } from "ai";
+import { useState } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { QcmContent } from "@/lib/ai/prompts";
 import { cn } from "@/lib/utils";
 
-type PartialQcm = DeepPartial<QcmContent>;
+export interface RedactedQcm {
+  id: string;
+  title: string;
+  questions: { question: string; options: string[] }[];
+}
 
-export function QcmView({ object, savedId }: { object: PartialQcm | undefined; savedId: string | null }) {
+interface Correction {
+  correctIndex: number;
+  explanation: string;
+}
+
+export function QcmView({ quiz }: { quiz: RedactedQcm }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [corrections, setCorrections] = useState<Correction[] | null>(null);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const questions = useMemo(
-    () =>
-      (object?.questions ?? []).filter(
-        (q): q is QcmContent["questions"][number] =>
-          Boolean(q?.question) && Array.isArray(q?.options) && q.options.length === 4 && q.correctIndex !== undefined,
-      ),
-    [object],
-  );
-
-  if (questions.length === 0) return null;
-
-  const allAnswered = questions.every((_, i) => answers[i] !== undefined);
+  const submitted = corrections !== null;
+  const allAnswered = quiz.questions.every((_, i) => answers[i] !== undefined);
 
   async function handleSubmit() {
-    if (!savedId) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/qcm-attempts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          generatedContentId: savedId,
-          answers: questions.map((_, i) => answers[i]),
+          generatedContentId: quiz.id,
+          answers: quiz.questions.map((_, i) => answers[i]),
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        setResult(data);
-        setSubmitted(true);
+        setResult({ score: data.score, total: data.total });
+        setCorrections(data.corrections);
       }
     } finally {
       setIsSubmitting(false);
@@ -52,7 +48,7 @@ export function QcmView({ object, savedId }: { object: PartialQcm | undefined; s
 
   return (
     <div className="space-y-4">
-      {object?.title && <h2 className="font-semibold">{object.title}</h2>}
+      <h2 className="font-semibold">{quiz.title}</h2>
 
       {result && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-center">
@@ -63,47 +59,51 @@ export function QcmView({ object, savedId }: { object: PartialQcm | undefined; s
         </div>
       )}
 
-      {questions.map((q, i) => (
-        <div key={i} className="rounded-2xl border border-border/60 bg-card p-4">
-          <p className="mb-3 text-sm font-medium">
-            {i + 1}. {q.question}
-          </p>
-          <div className="space-y-2">
-            {q.options.map((option, optIndex) => {
-              const isSelected = answers[i] === optIndex;
-              const isCorrect = optIndex === q.correctIndex;
-              const showFeedback = submitted;
+      {quiz.questions.map((q, i) => {
+        const correction = corrections?.[i];
+        return (
+          <div key={i} className="rounded-2xl border border-border/60 bg-card p-4">
+            <p className="mb-3 text-sm font-medium">
+              {i + 1}. {q.question}
+            </p>
+            <div className="space-y-2">
+              {q.options.map((option, optIndex) => {
+                const isSelected = answers[i] === optIndex;
+                const isCorrect = submitted && optIndex === correction?.correctIndex;
 
-              return (
-                <button
-                  key={optIndex}
-                  type="button"
-                  disabled={submitted}
-                  onClick={() => setAnswers((prev) => ({ ...prev, [i]: optIndex }))}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors",
-                    isSelected && !showFeedback && "border-primary bg-primary/5",
-                    !isSelected && !showFeedback && "border-border hover:bg-muted/50",
-                    showFeedback && isCorrect && "border-primary bg-primary/10",
-                    showFeedback && isSelected && !isCorrect && "border-destructive bg-destructive/10",
-                    showFeedback && !isSelected && !isCorrect && "border-border opacity-60",
-                  )}
-                >
-                  <span>{option}</span>
-                  {showFeedback && isCorrect && <CheckCircle2 className="size-4 shrink-0 text-primary" />}
-                  {showFeedback && isSelected && !isCorrect && <XCircle className="size-4 shrink-0 text-destructive" />}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={optIndex}
+                    type="button"
+                    disabled={submitted}
+                    onClick={() => setAnswers((prev) => ({ ...prev, [i]: optIndex }))}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors",
+                      isSelected && !submitted && "border-primary bg-primary/5",
+                      !isSelected && !submitted && "border-border hover:bg-muted/50",
+                      submitted && isCorrect && "border-primary bg-primary/10",
+                      submitted && isSelected && !isCorrect && "border-destructive bg-destructive/10",
+                      submitted && !isSelected && !isCorrect && "border-border opacity-60",
+                    )}
+                  >
+                    <span>{option}</span>
+                    {submitted && isCorrect && <CheckCircle2 className="size-4 shrink-0 text-primary" />}
+                    {submitted && isSelected && !isCorrect && <XCircle className="size-4 shrink-0 text-destructive" />}
+                  </button>
+                );
+              })}
+            </div>
+            {correction?.explanation && (
+              <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {correction.explanation}
+              </p>
+            )}
           </div>
-          {submitted && q.explanation && (
-            <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">{q.explanation}</p>
-          )}
-        </div>
-      ))}
+        );
+      })}
 
       {!submitted && (
-        <Button onClick={handleSubmit} disabled={!allAnswered || !savedId || isSubmitting} className="w-full">
+        <Button onClick={handleSubmit} disabled={!allAnswered || isSubmitting} className="w-full">
           Valider mes réponses
         </Button>
       )}
