@@ -1,4 +1,4 @@
-import { convertToModelMessages, streamText } from "ai";
+import { convertToModelMessages, smoothStream, streamText } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import { chatModel } from "@/lib/ai/openai";
 import { CHAT_SYSTEM_PROMPT, ragSystemPrompt } from "@/lib/ai/prompts";
@@ -66,6 +66,9 @@ export async function POST(req: Request) {
     model: chatModel(),
     system,
     messages: await convertToModelMessages(messages),
+    // OpenAI streame parfois si vite (des dizaines de mots en <1s) que sans
+    // lissage, la réponse semble apparaître d'un bloc plutôt que "s'écrire".
+    experimental_transform: smoothStream({ delayInMs: 15, chunking: "word" }),
     onFinish: async ({ text }) => {
       await supabase.from("messages").insert({
         conversation_id: conversationId,

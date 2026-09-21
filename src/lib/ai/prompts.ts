@@ -26,20 +26,26 @@ ${context}`;
 // Schémas de sortie structurée pour les générateurs
 // ---------------------------------------------------------------------------
 
+const qcmQuestionSchema = z.object({
+  question: z.string().min(1),
+  options: z.array(z.string().min(1)).length(4),
+  correctIndex: z.number().int().min(0).max(3),
+  explanation: z.string().min(1),
+});
+
 export const qcmSchema = z.object({
   title: z.string().min(1),
-  questions: z
-    .array(
-      z.object({
-        question: z.string().min(1),
-        options: z.array(z.string().min(1)).length(4),
-        correctIndex: z.number().int().min(0).max(3),
-        explanation: z.string().min(1),
-      }),
-    )
-    .min(1),
+  questions: z.array(qcmQuestionSchema).min(1),
 });
 export type QcmContent = z.infer<typeof qcmSchema>;
+
+/** Variante avec un nombre de questions imposé strictement (utilisée pour la génération). */
+export function qcmSchemaForCount(count: number) {
+  return z.object({
+    title: z.string().min(1),
+    questions: z.array(qcmQuestionSchema).length(count),
+  });
+}
 
 export const flashcardsSchema = z.object({
   title: z.string().min(1),
@@ -103,7 +109,13 @@ Produis toujours du contenu en français, rigoureux, fidèle à la source fourni
 export function qcmPrompt(sourceText: string, questionCount: 10 | 20 | 50) {
   return {
     system: GENERATOR_SYSTEM_PROMPT,
-    prompt: `À partir du contenu de cours suivant, crée un QCM de ${questionCount} questions. Chaque question doit avoir exactement 4 réponses possibles, une seule correcte, et une explication pédagogique de la bonne réponse.
+    prompt: `À partir du contenu de cours suivant, crée un QCM de EXACTEMENT ${questionCount} questions (ni plus, ni moins).
+
+Exigences de qualité, à respecter strictement :
+- Les 3 mauvaises réponses (distracteurs) de chaque question doivent être plausibles et rester dans le même thème que la bonne réponse : elles doivent correspondre à des erreurs de compréhension réalistes (confusion entre deux notions proches, application incorrecte d'une règle, détail légèrement faux...), jamais des options absurdes, hors-sujet ou évidemment fausses.
+- Varie la difficulté : environ un tiers de questions de restitution simple (définitions, faits directement dans le texte), un tiers qui demandent de relier plusieurs éléments du cours entre eux, et un tiers qui demandent d'appliquer ou raisonner sur la notion (pas seulement la réciter).
+- Base-toi uniquement sur le contenu fourni ci-dessous, ne invente pas d'informations qui n'y figurent pas.
+- L'explication de chaque question doit dire pourquoi la bonne réponse est correcte ET pourquoi les distracteurs les plus proches sont incorrects.
 
 Contenu de cours :
 """

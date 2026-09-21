@@ -1,7 +1,7 @@
 import { generateObject } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import { chatModel } from "@/lib/ai/openai";
-import { qcmSchema, qcmPrompt } from "@/lib/ai/prompts";
+import { qcmSchemaForCount, qcmPrompt } from "@/lib/ai/prompts";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { deductCredits, hasEnoughCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
 import { getDocument, getDocumentFullText } from "@/lib/documents/queries";
@@ -51,11 +51,17 @@ export async function POST(req: Request) {
     return Response.json({ error: "NO_SOURCE_TEXT" }, { status: 400 });
   }
 
-  const { system, prompt } = qcmPrompt(sourceText, body.questionCount ?? 10);
+  const questionCount = body.questionCount ?? 10;
+  const { system, prompt } = qcmPrompt(sourceText, questionCount);
 
   let object;
   try {
-    const result = await generateObject({ model: chatModel(), schema: qcmSchema, system, prompt });
+    const result = await generateObject({
+      model: chatModel(),
+      schema: qcmSchemaForCount(questionCount),
+      system,
+      prompt,
+    });
     object = result.object;
   } catch {
     return Response.json({ error: "GENERATION_FAILED" }, { status: 500 });
