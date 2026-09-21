@@ -4,6 +4,7 @@ import { useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { UploadCloud, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const ACCEPTED_TYPES = [
@@ -16,10 +17,18 @@ const ERROR_MESSAGES: Record<string, string> = {
   INSUFFICIENT_CREDITS: "Crédits insuffisants pour analyser ce document (5 crédits requis).",
   UNSUPPORTED_FILE_TYPE: "Format non supporté. Utilise un PDF ou un fichier Word (.docx).",
   PDF_LIMIT_REACHED: "Tu as atteint la limite de documents de ton plan. Passe à un plan supérieur pour en ajouter davantage.",
-  UPLOAD_FAILED: "L'envoi du fichier a échoué. Réessaie.",
+  SIGN_FAILED: "Impossible de préparer l'envoi. Réessaie.",
+  DOWNLOAD_FAILED: "L'envoi du fichier a échoué. Réessaie.",
   INGESTION_FAILED: "L'analyse du document a échoué. Réessaie avec un autre fichier.",
 };
 
+/**
+ * Import en 3 temps pour ne pas être limité par la taille de requête des
+ * fonctions serverless Vercel (~4,5 Mo) :
+ * 1. Le serveur prépare une URL signée Supabase Storage (vérifie crédits/quota).
+ * 2. Le navigateur envoie le fichier DIRECTEMENT à Supabase Storage.
+ * 3. Le serveur télécharge le fichier depuis le stockage et lance l'analyse.
+ */
 export function UploadDropzone({
   onUploaded,
   compact,
@@ -40,22 +49,42 @@ export function UploadDropzone({
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const res = await fetch("/api/documents/upload", { method: "POST", body: formData });
-      const data = await res.json();
+      const urlRes = await fetch("/api/documents/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
+      });
+      const urlData = await urlRes.json();
+      if (!urlRes.ok) {
+        toast.error(ERROR_MESSAGES[urlData.error] ?? "Une erreur est survenue.");
+        return;
+      }
 
-      if (!res.ok) {
-        toast.error(ERROR_MESSAGES[data.error] ?? "Une erreur est survenue.");
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .uploadToSignedUrl(urlData.path, urlData.token, file);
+      if (uploadError) {
+        toast.error(ERROR_MESSAGES.DOWNLOAD_FAILED);
+        return;
+      }
+
+      const processRes = await fetch("/api/documents/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: urlData.path, title: urlData.title, fileType: urlData.fileType }),
+      });
+      const processData = await processRes.json();
+      if (!processRes.ok) {
+        toast.error(ERROR_MESSAGES[processData.error] ?? "Une erreur est survenue.");
         return;
       }
 
       if (onUploaded) {
-        onUploaded({ id: data.document.id, title: data.document.title });
+        onUploaded({ id: processData.document.id, title: processData.document.title });
       } else {
-        toast.success(`"${data.document.title}" a été analysé avec succès.`);
+        toast.success(`"${processData.document.title}" a été analysé avec succès.`);
         router.refresh();
       }
     } catch {
