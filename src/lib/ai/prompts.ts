@@ -60,9 +60,19 @@ export const summarySchema = z.object({
 });
 export type SummaryContent = z.infer<typeof summarySchema>;
 
+export const revisionSheetSectionTypes = ["definition", "principe", "formule", "exemple", "point_cle"] as const;
+
 export const revisionSheetSchema = z.object({
   title: z.string().min(1),
-  sections: z.array(z.object({ heading: z.string().min(1), content: z.string().min(1) })).min(1),
+  sections: z
+    .array(
+      z.object({
+        heading: z.string().min(1),
+        type: z.enum(revisionSheetSectionTypes),
+        content: z.string().min(1),
+      }),
+    )
+    .min(1),
 });
 export type RevisionSheetContent = z.infer<typeof revisionSheetSchema>;
 
@@ -151,7 +161,16 @@ ${sourceText}
 export function revisionSheetPrompt(sourceText: string) {
   return {
     system: GENERATOR_SYSTEM_PROMPT,
-    prompt: `Transforme le contenu de cours suivant en fiche de révision structurée par sections (définitions, notions clés, exemples, points à retenir).
+    prompt: `Transforme le contenu de cours suivant en fiche de révision, pensée pour tenir sur UNE SEULE page A4 : ne garde que l'essentiel, va droit au but, pas de remplissage ni de répétitions.
+
+Chaque section a un type parmi : "definition", "principe", "formule", "exemple", "point_cle". Consignes par type :
+- "definition" : les notions et termes clés du cours, définis en une phrase concise.
+- "principe" : les règles, lois ou principes généraux énoncés dans le cours (le "pourquoi"/"comment" derrière les notions).
+- "formule" : TOUTES les formules ou équations importantes du cours, si le sujet en comporte (maths, physique, chimie, économie...). Écris chaque formule clairement avec la signification de chaque variable. Si le cours n'a vraiment aucune formule (ex: littérature, histoire), omets ce type.
+- "exemple" : au moins un exemple concret appliqué. Si le sujet s'y prête (maths, physique, chimie...), inclus un calcul complet, étape par étape, avec le résultat final — pas juste l'énoncé du problème.
+- "point_cle" : ce qu'il faut absolument retenir pour un examen (synthèse, pièges fréquents, ordre de grandeur...).
+
+N'invente rien : base-toi uniquement sur le contenu fourni. Si un type ne s'applique pas au sujet (ex: pas de formule en philosophie), ne crée pas de section vide pour ce type — omets-le simplement.
 
 Contenu de cours :
 """

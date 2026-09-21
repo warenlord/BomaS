@@ -81,64 +81,66 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
   const selectedTitles = allDocuments.filter((d) => selectedIds.includes(d.id)).map((d) => d.title);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold">{label}</h1>
-        {selectedTitles.length > 0 ? (
-          <p className="text-sm text-muted-foreground">
-            À partir de « {selectedTitles.join(" », « ")} » · {creditCost} crédit{creditCost > 1 ? "s" : ""}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Choisis un ou plusieurs documents, ou colle un texte · {creditCost} crédit{creditCost > 1 ? "s" : ""}
-          </p>
-        )}
-      </div>
+    <div className="mx-auto max-w-3xl px-4 py-6 print:max-w-none print:p-0">
+      <div className="print:hidden">
+        <div className="mb-4">
+          <h1 className="text-xl font-semibold">{label}</h1>
+          {selectedTitles.length > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              À partir de « {selectedTitles.join(" », « ")} » · {creditCost} crédit{creditCost > 1 ? "s" : ""}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Choisis un ou plusieurs documents, ou colle un texte · {creditCost} crédit{creditCost > 1 ? "s" : ""}
+            </p>
+          )}
+        </div>
 
-      <DocumentPicker documents={allDocuments} selectedIds={selectedIds} onChange={setSelectedIds} />
+        <DocumentPicker documents={allDocuments} selectedIds={selectedIds} onChange={setSelectedIds} />
 
-      {!usingDocuments && (
-        <div className="mb-4 space-y-3">
-          {allDocuments.length > 0 && (
+        {!usingDocuments && (
+          <div className="mb-4 space-y-3">
+            {allDocuments.length > 0 && (
+              <div className="flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">ou</span>
+                <Separator className="flex-1" />
+              </div>
+            )}
+            <UploadDropzone
+              compact
+              onUploaded={(doc) => {
+                setExtraDocuments((prev) => [...prev, { ...doc, subject: null }]);
+                setSelectedIds((prev) => [...prev, doc.id]);
+              }}
+            />
             <div className="flex items-center gap-3">
               <Separator className="flex-1" />
               <span className="text-xs text-muted-foreground">ou</span>
               <Separator className="flex-1" />
             </div>
-          )}
-          <UploadDropzone
-            compact
-            onUploaded={(doc) => {
-              setExtraDocuments((prev) => [...prev, { ...doc, subject: null }]);
-              setSelectedIds((prev) => [...prev, doc.id]);
-            }}
-          />
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">ou</span>
-            <Separator className="flex-1" />
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Colle ici le contenu de ton cours (au moins quelques phrases)..."
+              className="max-h-64 min-h-32 overflow-y-auto"
+            />
           </div>
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Colle ici le contenu de ton cours (au moins quelques phrases)..."
-            className="max-h-64 min-h-32 overflow-y-auto"
-          />
-        </div>
-      )}
+        )}
 
-      {renderControls?.({ disabled: isLoading })}
+        {renderControls?.({ disabled: isLoading })}
 
-      <Button onClick={handleGenerate} disabled={!canSubmit || isLoading} className="mb-6 w-full sm:w-auto">
-        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-        Générer
-      </Button>
+        <Button onClick={handleGenerate} disabled={!canSubmit || isLoading} className="mb-6 w-full sm:w-auto">
+          {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+          Générer
+        </Button>
 
-      {error && (
-        <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          Erreur lors de la génération. Vérifie ton solde de crédits ou réessaie.
-        </p>
-      )}
+        {error && (
+          <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            Erreur lors de la génération. Vérifie ton solde de crédits ou réessaie.
+          </p>
+        )}
+      </div>
 
       {renderResult(object, savedId)}
     </div>

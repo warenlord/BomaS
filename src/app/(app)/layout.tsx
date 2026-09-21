@@ -23,21 +23,27 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const fullName = (user.user_metadata?.full_name as string | undefined) ?? null;
 
   return (
-    <div className="flex min-h-full flex-1">
-      <AppSidebar
-        stats={stats}
-        planName={plan.name}
-        conversations={conversations.slice(0, 12)}
-        email={user.email ?? ""}
-        fullName={fullName}
-      />
-
-      <div className="flex min-h-full flex-1 flex-col">
-        <AppTopbar email={user.email ?? ""} fullName={fullName} balance={stats.balance} />
-        <main className="flex-1 pb-20 md:pb-0">{children}</main>
+    <div className="flex min-h-full flex-1 print:block">
+      <div className="print:hidden">
+        <AppSidebar
+          stats={stats}
+          planName={plan.name}
+          conversations={conversations.slice(0, 12)}
+          email={user.email ?? ""}
+          fullName={fullName}
+        />
       </div>
 
-      <MobileBottomNav />
+      <div className="flex min-h-full flex-1 flex-col print:block">
+        <div className="print:hidden">
+          <AppTopbar email={user.email ?? ""} fullName={fullName} balance={stats.balance} />
+        </div>
+        <main className="flex-1 pb-20 md:pb-0 print:p-0">{children}</main>
+      </div>
+
+      <div className="print:hidden">
+        <MobileBottomNav />
+      </div>
     </div>
   );
 }
