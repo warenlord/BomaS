@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getDocument } from "@/lib/documents/queries";
+import { getCurrentUser } from "@/lib/auth/session";
+import { listReadyDocuments } from "@/lib/documents/queries";
 import { QcmTool } from "@/components/tools/qcm-tool";
 
 export default async function QcmPage({
@@ -8,8 +10,11 @@ export default async function QcmPage({
   searchParams: Promise<{ documentId?: string }>;
 }) {
   const { documentId } = await searchParams;
-  const supabase = await createClient();
-  const document = documentId ? await getDocument(supabase, documentId) : null;
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
-  return <QcmTool documentId={documentId} documentTitle={document?.title} />;
+  const supabase = await createClient();
+  const documents = await listReadyDocuments(supabase, user.id);
+
+  return <QcmTool documents={documents} initialDocumentId={documentId} />;
 }

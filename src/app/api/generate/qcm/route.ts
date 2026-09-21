@@ -4,7 +4,7 @@ import { chatModel } from "@/lib/ai/openai";
 import { qcmSchemaForCount, qcmPrompt } from "@/lib/ai/prompts";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { deductCredits, hasEnoughCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
-import { getDocument, getDocumentFullText } from "@/lib/documents/queries";
+import { listDocuments, getDocumentsFullText } from "@/lib/documents/queries";
 
 export const maxDuration = 120;
 
@@ -30,21 +30,23 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json()) as {
-    documentId?: string;
+    documentIds?: string[];
     text?: string;
     questionCount?: 10 | 20 | 50;
   };
 
   let sourceText = body.text ?? "";
+  const documentIds = body.documentIds ?? [];
   let documentTitle: string | null = null;
 
-  if (body.documentId) {
-    const document = await getDocument(supabase, body.documentId);
-    if (!document || document.user_id !== user.id) {
+  if (documentIds.length > 0) {
+    const allDocuments = await listDocuments(supabase, user.id);
+    const selected = allDocuments.filter((d) => documentIds.includes(d.id));
+    if (selected.length !== documentIds.length) {
       return Response.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
     }
-    documentTitle = document.title;
-    sourceText = await getDocumentFullText(supabase, body.documentId);
+    documentTitle = selected.length === 1 ? selected[0].title : `${selected.length} documents`;
+    sourceText = await getDocumentsFullText(supabase, selected);
   }
 
   if (!sourceText.trim()) {
@@ -73,7 +75,8 @@ export async function POST(req: Request) {
     .from("generated_content")
     .insert({
       user_id: user.id,
-      document_id: body.documentId ?? null,
+      document_id: documentIds[0] ?? null,
+      document_ids: documentIds,
       type: "qcm",
       title,
       content: object,

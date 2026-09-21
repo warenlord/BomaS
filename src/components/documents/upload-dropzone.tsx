@@ -32,10 +32,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function UploadDropzone({
   onUploaded,
   compact,
+  subject,
 }: {
   /** Par défaut : rafraîchit la page (usage sur /documents). Fournir ce callback pour un usage inline (ex: générateurs). */
   onUploaded?: (document: { id: string; title: string }) => void;
   compact?: boolean;
+  subject?: string | null;
 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -73,7 +75,12 @@ export function UploadDropzone({
       const processRes = await fetch("/api/documents/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: urlData.path, title: urlData.title, fileType: urlData.fileType }),
+        body: JSON.stringify({
+          path: urlData.path,
+          title: urlData.title,
+          fileType: urlData.fileType,
+          subject: subject ?? null,
+        }),
       });
       const processData = await processRes.json();
       if (!processRes.ok) {

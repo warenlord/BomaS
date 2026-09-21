@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { chatModel } from "@/lib/ai/openai";
 import { GENERATORS } from "@/lib/ai/generators";
 import { hasEnoughCredits } from "@/lib/credits/ledger";
-import { getDocument, getDocumentFullText } from "@/lib/documents/queries";
+import { listDocuments, getDocumentsFullText } from "@/lib/documents/queries";
 import type { GeneratedContentType } from "@/lib/types/database.types";
 
 export const maxDuration = 120;
@@ -32,20 +32,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
   }
 
   const body = (await req.json()) as {
-    documentId?: string;
+    documentIds?: string[];
     text?: string;
     questionCount?: 10 | 20 | 50;
     durationMinutes?: number;
   };
 
   let sourceText = body.text ?? "";
+  const documentIds = body.documentIds ?? [];
 
-  if (body.documentId) {
-    const document = await getDocument(supabase, body.documentId);
-    if (!document || document.user_id !== user.id) {
+  if (documentIds.length > 0) {
+    const allDocuments = await listDocuments(supabase, user.id);
+    const selected = allDocuments.filter((d) => documentIds.includes(d.id));
+    if (selected.length !== documentIds.length) {
       return Response.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
     }
-    sourceText = await getDocumentFullText(supabase, body.documentId);
+    sourceText = await getDocumentsFullText(supabase, selected);
   }
 
   if (!sourceText.trim()) {

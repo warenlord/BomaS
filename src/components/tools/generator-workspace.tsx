@@ -9,14 +9,17 @@ import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { UploadDropzone } from "@/components/documents/upload-dropzone";
+import { DocumentPicker, type PickerDocument } from "@/components/tools/document-picker";
 
 export function GeneratorWorkspace<Schema extends z.ZodType>({
   type,
   schema,
   label,
   creditCost,
-  documentId,
-  documentTitle,
+  documents,
+  initialDocumentId,
   extraBody,
   renderControls,
   renderResult,
@@ -25,15 +28,19 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
   schema: Schema;
   label: string;
   creditCost: number;
-  documentId?: string;
-  documentTitle?: string | null;
+  documents: PickerDocument[];
+  initialDocumentId?: string;
   extraBody?: Record<string, unknown>;
   renderControls?: (opts: { disabled: boolean }) => ReactNode;
   renderResult: (object: DeepPartial<z.infer<Schema>> | undefined, savedId: string | null) => ReactNode;
 }) {
   const [text, setText] = useState("");
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [extraDocuments, setExtraDocuments] = useState<PickerDocument[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(initialDocumentId ? [initialDocumentId] : []);
   const router = useRouter();
+
+  const allDocuments = [...documents, ...extraDocuments];
 
   const { object, submit, isLoading, error } = useObject({
     api: `/api/generate/${type}`,
@@ -45,7 +52,7 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
         const res = await fetch("/api/generated-content", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type, documentId, content: finalObject }),
+          body: JSON.stringify({ type, documentIds: selectedIds, content: finalObject }),
         });
         const data = await res.json();
         if (res.ok) {
@@ -63,35 +70,61 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
     },
   });
 
-  const canSubmit = Boolean(documentId) || text.trim().length > 50;
+  const usingDocuments = selectedIds.length > 0;
+  const canSubmit = usingDocuments || text.trim().length > 50;
 
   function handleGenerate() {
     setSavedId(null);
-    submit({ documentId, text: documentId ? undefined : text, ...extraBody });
+    submit({ documentIds: usingDocuments ? selectedIds : undefined, text: usingDocuments ? undefined : text, ...extraBody });
   }
+
+  const selectedTitles = allDocuments.filter((d) => selectedIds.includes(d.id)).map((d) => d.title);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mb-4">
         <h1 className="text-xl font-semibold">{label}</h1>
-        {documentTitle ? (
+        {selectedTitles.length > 0 ? (
           <p className="text-sm text-muted-foreground">
-            À partir de « {documentTitle} » · {creditCost} crédit{creditCost > 1 ? "s" : ""}
+            À partir de « {selectedTitles.join(" », « ")} » · {creditCost} crédit{creditCost > 1 ? "s" : ""}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Colle le contenu d&apos;un cours · {creditCost} crédit{creditCost > 1 ? "s" : ""}
+            Choisis un ou plusieurs documents, ou colle un texte · {creditCost} crédit{creditCost > 1 ? "s" : ""}
           </p>
         )}
       </div>
 
-      {!documentId && (
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Colle ici le contenu de ton cours (au moins quelques phrases)..."
-          className="mb-4 max-h-64 min-h-40 overflow-y-auto"
-        />
+      <DocumentPicker documents={allDocuments} selectedIds={selectedIds} onChange={setSelectedIds} />
+
+      {!usingDocuments && (
+        <div className="mb-4 space-y-3">
+          {allDocuments.length > 0 && (
+            <div className="flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">ou</span>
+              <Separator className="flex-1" />
+            </div>
+          )}
+          <UploadDropzone
+            compact
+            onUploaded={(doc) => {
+              setExtraDocuments((prev) => [...prev, { ...doc, subject: null }]);
+              setSelectedIds((prev) => [...prev, doc.id]);
+            }}
+          />
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground">ou</span>
+            <Separator className="flex-1" />
+          </div>
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Colle ici le contenu de ton cours (au moins quelques phrases)..."
+            className="max-h-64 min-h-32 overflow-y-auto"
+          />
+        </div>
       )}
 
       {renderControls?.({ disabled: isLoading })}

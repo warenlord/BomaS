@@ -18,6 +18,19 @@ export async function getDocument(supabase: SupabaseClient<Database>, documentId
   return data;
 }
 
+/** Documents prêts à être utilisés dans un sélecteur (générateurs, chat). */
+export async function listReadyDocuments(supabase: SupabaseClient<Database>, userId: string) {
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, title, subject")
+    .eq("user_id", userId)
+    .eq("status", "ready")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
 export async function countReadyDocuments(supabase: SupabaseClient<Database>, userId: string) {
   const { count, error } = await supabase
     .from("documents")
@@ -54,4 +67,28 @@ export async function getDocumentFullText(
   }
 
   return text.slice(0, maxChars);
+}
+
+/**
+ * Combine le texte de plusieurs documents (ex : plusieurs chapitres d'une
+ * même matière) pour un examen ou un QCM qui les couvre tous. Le budget de
+ * caractères est réparti équitablement entre les documents pour qu'un gros
+ * chapitre n'écrase pas les autres.
+ */
+export async function getDocumentsFullText(
+  supabase: SupabaseClient<Database>,
+  documents: { id: string; title: string }[],
+  maxChars = 14000,
+): Promise<string> {
+  if (documents.length === 0) return "";
+
+  const perDocBudget = Math.max(1000, Math.floor(maxChars / documents.length));
+  const parts: string[] = [];
+
+  for (const doc of documents) {
+    const text = await getDocumentFullText(supabase, doc.id, perDocBudget);
+    if (text) parts.push(`--- ${doc.title} ---\n${text}`);
+  }
+
+  return parts.join("\n\n");
 }

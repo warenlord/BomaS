@@ -21,10 +21,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const { path, title, fileType } = (await req.json()) as {
+  const { path, title, fileType, subject } = (await req.json()) as {
     path: string;
     title: string;
     fileType: DocumentFileType;
+    subject?: string | null;
   };
 
   if (!path.startsWith(`${user.id}/`)) {
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
     .insert({
       user_id: user.id,
       title,
+      subject: subject ?? null,
       file_path: path,
       file_type: fileType,
       status: "pending",

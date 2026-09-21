@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { GENERATORS } from "@/lib/ai/generators";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { deductCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
-import { getDocument } from "@/lib/documents/queries";
+import { listDocuments } from "@/lib/documents/queries";
 import type { GeneratedContentType } from "@/lib/types/database.types";
 
 /**
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json()) as {
     type?: string;
-    documentId?: string;
+    documentIds?: string[];
     content?: unknown;
   };
 
@@ -35,13 +35,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "INVALID_CONTENT" }, { status: 400 });
   }
 
+  const documentIds = body.documentIds ?? [];
   let documentTitle: string | null = null;
-  if (body.documentId) {
-    const document = await getDocument(supabase, body.documentId);
-    if (!document || document.user_id !== user.id) {
+
+  if (documentIds.length > 0) {
+    const allDocuments = await listDocuments(supabase, user.id);
+    const selected = allDocuments.filter((d) => documentIds.includes(d.id));
+    if (selected.length !== documentIds.length) {
       return Response.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
     }
-    documentTitle = document.title;
+    documentTitle = selected.length === 1 ? selected[0].title : `${selected.length} documents`;
   }
 
   const title = (parsed.data as { title?: string }).title?.trim() || documentTitle || "Contenu généré";
@@ -50,7 +53,8 @@ export async function POST(req: Request) {
     .from("generated_content")
     .insert({
       user_id: user.id,
-      document_id: body.documentId ?? null,
+      document_id: documentIds[0] ?? null,
+      document_ids: documentIds,
       type: body.type as GeneratedContentType,
       title,
       content: parsed.data,

@@ -126,6 +126,7 @@ export interface Database {
           id: string;
           user_id: string;
           title: string;
+          subject: string | null;
           file_path: string;
           file_type: DocumentFileType;
           status: DocumentStatus;
@@ -183,6 +184,7 @@ export interface Database {
           id: string;
           user_id: string;
           document_id: string | null;
+          document_ids: string[];
           type: GeneratedContentType;
           title: string;
           content: unknown;

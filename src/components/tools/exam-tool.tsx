@@ -3,12 +3,19 @@
 import { useState } from "react";
 import { GeneratorWorkspace } from "@/components/tools/generator-workspace";
 import { ExamView } from "@/components/tools/exam-view";
+import type { PickerDocument } from "@/components/tools/document-picker";
 import { examSchema } from "@/lib/ai/prompts";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 
 const DURATIONS = [30, 60, 90, 120] as const;
 
-export function ExamTool({ documentId, documentTitle }: { documentId?: string; documentTitle?: string | null }) {
+export function ExamTool({
+  documents,
+  initialDocumentId,
+}: {
+  documents: PickerDocument[];
+  initialDocumentId?: string;
+}) {
   const [duration, setDuration] = useState<number>(60);
 
   return (
@@ -17,8 +24,8 @@ export function ExamTool({ documentId, documentTitle }: { documentId?: string; d
       schema={examSchema}
       label="Examen blanc"
       creditCost={CREDIT_COSTS.exam}
-      documentId={documentId}
-      documentTitle={documentTitle}
+      documents={documents}
+      initialDocumentId={initialDocumentId}
       extraBody={{ durationMinutes: duration }}
       renderControls={({ disabled }) => (
         <div className="mb-4 flex gap-2">
