@@ -1,14 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { saspayProvider } from "@/lib/billing/saspay";
+import { singpayProvider } from "@/lib/billing/singpay";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function POST(req: Request) {
   const rawBody = await req.text();
-  const verification = await saspayProvider.verifyWebhook(rawBody, req.headers);
+  const verification = await singpayProvider.verifyWebhook(rawBody, req.headers);
 
   if (!verification.isValid) {
-    return Response.json({ error: "INVALID_SIGNATURE" }, { status: 401 });
+    return Response.json({ error: "VERIFICATION_FAILED" }, { status: 401 });
   }
 
   const supabase = createAdminClient();

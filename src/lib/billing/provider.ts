@@ -25,7 +25,7 @@ export interface WebhookVerificationResult {
 
 /**
  * Interface découplée du fournisseur de paiement concret, pour pouvoir
- * swapper l'implémentation (Saspay aujourd'hui, éventuellement un autre
+ * swapper l'implémentation (SingPay aujourd'hui, éventuellement un autre
  * agrégateur demain) sans toucher aux routes API ni à la logique métier.
  */
 export interface PaymentProvider {

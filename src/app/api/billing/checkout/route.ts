@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
-import { saspayProvider } from "@/lib/billing/saspay";
+import { singpayProvider } from "@/lib/billing/singpay";
 import { PLANS, CREDIT_PACKS } from "@/lib/billing/plans";
 import type { CreditPackCode, SubscriptionPlanCode } from "@/lib/types/database.types";
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
 
   const { error: insertError } = await supabase.from("payments").insert({
     user_id: user.id,
-    provider: "saspay",
+    provider: "singpay",
     kind,
     plan_id: planId,
     credit_pack_id: packId,
@@ -62,16 +62,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
   }
 
-  if (!saspayProvider.isConfigured()) {
+  if (!singpayProvider.isConfigured()) {
     return Response.json({
       configured: false,
       message:
-        "Le paiement Saspay n'est pas encore configuré sur cette instance. Contacte l'administrateur pour activer les paiements.",
+        "Le paiement SingPay n'est pas encore configuré sur cette instance. Contacte l'administrateur pour activer les paiements.",
     });
   }
 
   try {
-    const { checkoutUrl } = await saspayProvider.initPayment({
+    const { checkoutUrl } = await singpayProvider.initPayment({
       reference,
       amountFcfa,
       description,
@@ -80,6 +80,6 @@ export async function POST(req: Request) {
     });
     return Response.json({ configured: true, checkoutUrl });
   } catch {
-    return Response.json({ error: "SASPAY_INIT_FAILED" }, { status: 500 });
+    return Response.json({ error: "SINGPAY_INIT_FAILED" }, { status: 500 });
   }
 }
