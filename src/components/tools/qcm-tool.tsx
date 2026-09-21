@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { QcmView, type RedactedQcm } from "@/components/tools/qcm-view";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 
@@ -21,12 +23,16 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function QcmTool({ documentId, documentTitle }: { documentId?: string; documentTitle?: string | null }) {
   const [questionCount, setQuestionCount] = useState<10 | 20 | 50>(10);
   const [text, setText] = useState("");
+  const [uploadedDoc, setUploadedDoc] = useState<{ id: string; title: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [quiz, setQuiz] = useState<RedactedQcm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const canSubmit = Boolean(documentId) || text.trim().length > 50;
+  // Priorité : document venu de l'URL (?documentId=...) > document tout juste importé > texte collé.
+  const activeDocumentId = documentId ?? uploadedDoc?.id;
+  const activeDocumentTitle = documentTitle ?? uploadedDoc?.title;
+  const canSubmit = Boolean(activeDocumentId) || text.trim().length > 50;
 
   async function handleGenerate() {
     setIsLoading(true);
@@ -36,7 +42,11 @@ export function QcmTool({ documentId, documentTitle }: { documentId?: string; do
       const res = await fetch("/api/generate/qcm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId, text: documentId ? undefined : text, questionCount }),
+        body: JSON.stringify({
+          documentId: activeDocumentId,
+          text: activeDocumentId ? undefined : text,
+          questionCount,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -56,23 +66,49 @@ export function QcmTool({ documentId, documentTitle }: { documentId?: string; do
     <div className="mx-auto max-w-3xl px-4 py-6">
       <div className="mb-4">
         <h1 className="text-xl font-semibold">Générateur de QCM</h1>
-        {documentTitle ? (
+        {activeDocumentTitle ? (
           <p className="text-sm text-muted-foreground">
-            À partir de « {documentTitle} » · {CREDIT_COSTS.qcm} crédits
+            À partir de « {activeDocumentTitle} » · {CREDIT_COSTS.qcm} crédits
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">Colle le contenu d&apos;un cours · {CREDIT_COSTS.qcm} crédits</p>
+          <p className="text-sm text-muted-foreground">
+            Importe un fichier ou colle le contenu d&apos;un cours · {CREDIT_COSTS.qcm} crédits
+          </p>
         )}
       </div>
 
-      {!documentId && (
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Colle ici le contenu de ton cours (au moins quelques phrases)..."
-          className="mb-4 min-h-40"
-        />
-      )}
+      {!documentId &&
+        (uploadedDoc ? (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-border/60 bg-card px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <FileText className="size-4 shrink-0 text-primary" />
+              <span className="truncate text-sm font-medium">{uploadedDoc.title}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUploadedDoc(null)}
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Retirer le document"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="mb-4 space-y-3">
+            <UploadDropzone compact onUploaded={(doc) => setUploadedDoc(doc)} />
+            <div className="flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">ou</span>
+              <Separator className="flex-1" />
+            </div>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Colle ici le contenu de ton cours (au moins quelques phrases)..."
+              className="max-h-64 min-h-32 overflow-y-auto"
+            />
+          </div>
+        ))}
 
       <div className="mb-4 flex gap-2">
         {QUESTION_COUNTS.map((count) => (

@@ -90,7 +90,7 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Colle ici le contenu de ton cours (au moins quelques phrases)..."
-          className="mb-4 min-h-40"
+          className="mb-4 max-h-64 min-h-40 overflow-y-auto"
         />
       )}
 
