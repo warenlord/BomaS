@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { chatModel } from "@/lib/ai/openai";
 import { GENERATORS } from "@/lib/ai/generators";
 import { hasEnoughCredits } from "@/lib/credits/ledger";
-import { listDocuments, getDocumentsFullText } from "@/lib/documents/queries";
+import { getDocumentsByIds, getDocumentsFullText } from "@/lib/documents/queries";
+import { isTextTooLong, MAX_PASTED_TEXT_LENGTH } from "@/lib/ai/limits";
 import type { GeneratedContentType } from "@/lib/types/database.types";
 
 export const maxDuration = 120;
@@ -42,12 +43,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
   const documentIds = body.documentIds ?? [];
 
   if (documentIds.length > 0) {
-    const allDocuments = await listDocuments(supabase, user.id);
-    const selected = allDocuments.filter((d) => documentIds.includes(d.id));
+    const selected = await getDocumentsByIds(supabase, user.id, documentIds);
     if (selected.length !== documentIds.length) {
       return Response.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
     }
     sourceText = await getDocumentsFullText(supabase, selected);
+  } else if (isTextTooLong(sourceText)) {
+    return Response.json({ error: "TEXT_TOO_LONG", maxLength: MAX_PASTED_TEXT_LENGTH }, { status: 400 });
   }
 
   if (!sourceText.trim()) {

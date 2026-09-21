@@ -18,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INSUFFICIENT_CREDITS: "Crédits insuffisants pour générer ce QCM.",
   DOCUMENT_NOT_FOUND: "Document introuvable.",
   NO_SOURCE_TEXT: "Ajoute du texte ou choisis un document avec du contenu.",
+  TEXT_TOO_LONG: "Le texte collé est trop long. Raccourcis-le ou utilise un document.",
   GENERATION_FAILED: "La génération a échoué. Réessaie.",
 };
 

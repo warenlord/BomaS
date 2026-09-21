@@ -110,6 +110,9 @@ export function UploadDropzone({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label="Importer un document"
       onDragOver={(e) => {
         e.preventDefault();
         setIsDragging(true);
@@ -117,7 +120,14 @@ export function UploadDropzone({
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
       onClick={() => !isUploading && inputRef.current?.click()}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && !isUploading) {
+          e.preventDefault();
+          inputRef.current?.click();
+        }
+      }}
       className={cn(
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
         "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/70 bg-muted/30 text-center transition-colors",
         compact ? "px-4 py-5" : "px-6 py-10",
         isDragging && "border-primary bg-primary/5",

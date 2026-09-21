@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ExamContent } from "@/lib/ai/prompts";
+import { examSchema } from "@/lib/ai/prompts";
 
 /**
  * Corrige un examen blanc côté serveur, une fois les réponses de l'étudiant
@@ -33,7 +33,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
-  const content = generated.content as ExamContent;
+  const parsed = examSchema.safeParse(generated.content);
+  if (!parsed.success) {
+    console.error("Stored exam content failed validation", generatedContentId, parsed.error);
+    return Response.json({ error: "INVALID_CONTENT" }, { status: 500 });
+  }
+  const content = parsed.data;
 
   let score = 0;
   let totalQcmPoints = 0;

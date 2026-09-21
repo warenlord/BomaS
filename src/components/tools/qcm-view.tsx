@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,11 @@ export function QcmView({ quiz }: { quiz: RedactedQcm }) {
       if (res.ok) {
         setResult({ score: data.score, total: data.total });
         setCorrections(data.corrections);
+      } else {
+        toast.error("La correction a échoué. Réessaie.");
       }
+    } catch {
+      toast.error("Erreur réseau, réessaie.");
     } finally {
       setIsSubmitting(false);
     }

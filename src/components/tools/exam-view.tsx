@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +49,11 @@ export function ExamView({ exam }: { exam: RedactedExam }) {
       if (res.ok) {
         setResult({ score: data.score, totalQcmPoints: data.totalQcmPoints, totalPoints: data.totalPoints });
         setCorrections(data.corrections);
+      } else {
+        toast.error("La correction a échoué. Réessaie.");
       }
+    } catch {
+      toast.error("Erreur réseau, réessaie.");
     } finally {
       setIsSubmitting(false);
     }

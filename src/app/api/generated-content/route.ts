@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { GENERATORS } from "@/lib/ai/generators";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { deductCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
-import { listDocuments } from "@/lib/documents/queries";
+import { getDocumentsByIds } from "@/lib/documents/queries";
 import type { GeneratedContentType } from "@/lib/types/database.types";
 
 /**
@@ -39,8 +39,7 @@ export async function POST(req: Request) {
   let documentTitle: string | null = null;
 
   if (documentIds.length > 0) {
-    const allDocuments = await listDocuments(supabase, user.id);
-    const selected = allDocuments.filter((d) => documentIds.includes(d.id));
+    const selected = await getDocumentsByIds(supabase, user.id, documentIds);
     if (selected.length !== documentIds.length) {
       return Response.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
     }
@@ -64,6 +63,7 @@ export async function POST(req: Request) {
     .single();
 
   if (insertError || !saved) {
+    console.error("Generated content insert failed", body.type, insertError);
     return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
   }
 

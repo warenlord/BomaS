@@ -22,11 +22,12 @@ export async function ingestDocument(
     const chunks = chunkText(text);
 
     if (chunks.length === 0) {
-      await supabase
-        .from("documents")
-        .update({ status: "error", error_message: "Aucun texte exploitable n'a été trouvé dans ce fichier." })
-        .eq("id", documentId);
-      return;
+      const message = "Aucun texte exploitable n'a été trouvé dans ce fichier.";
+      await supabase.from("documents").update({ status: "error", error_message: message }).eq("id", documentId);
+      // On lève quand même une exception (plutôt qu'un retour silencieux) pour
+      // que l'appelant sache que l'ingestion a échoué et ne débite/ne garde
+      // pas de crédits déjà réservés pour un document resté en erreur.
+      throw new Error(message);
     }
 
     const embeddings = await embedTexts(chunks.map((c) => c.content));

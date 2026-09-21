@@ -31,6 +31,22 @@ export async function listReadyDocuments(supabase: SupabaseClient<Database>, use
   return data;
 }
 
+/**
+ * Récupère un sous-ensemble précis de documents appartenant à l'utilisateur,
+ * pour valider une sélection (ex: documentIds envoyés par un générateur) sans
+ * charger toute sa bibliothèque pour ensuite filtrer côté serveur.
+ */
+export async function getDocumentsByIds(supabase: SupabaseClient<Database>, userId: string, ids: string[]) {
+  const { data, error } = await supabase
+    .from("documents")
+    .select("id, title, subject")
+    .eq("user_id", userId)
+    .in("id", ids);
+
+  if (error) throw error;
+  return data;
+}
+
 export async function countReadyDocuments(supabase: SupabaseClient<Database>, userId: string) {
   const { count, error } = await supabase
     .from("documents")
@@ -43,37 +59,12 @@ export async function countReadyDocuments(supabase: SupabaseClient<Database>, us
 }
 
 /**
- * Concatène les chunks d'un document (dans l'ordre) pour fournir un contexte
- * complet aux générateurs (résumé, QCM, examen, ...), plafonné en caractères
- * pour garder des prompts raisonnables.
- */
-export async function getDocumentFullText(
-  supabase: SupabaseClient<Database>,
-  documentId: string,
-  maxChars = 14000,
-): Promise<string> {
-  const { data, error } = await supabase
-    .from("document_chunks")
-    .select("content, chunk_index")
-    .eq("document_id", documentId)
-    .order("chunk_index", { ascending: true });
-
-  if (error) throw error;
-
-  let text = "";
-  for (const chunk of data ?? []) {
-    if (text.length >= maxChars) break;
-    text += (text ? "\n\n" : "") + chunk.content;
-  }
-
-  return text.slice(0, maxChars);
-}
-
-/**
  * Combine le texte de plusieurs documents (ex : plusieurs chapitres d'une
  * même matière) pour un examen ou un QCM qui les couvre tous. Le budget de
  * caractères est réparti équitablement entre les documents pour qu'un gros
- * chapitre n'écrase pas les autres.
+ * chapitre n'écrase pas les autres. Une seule requête groupée récupère les
+ * chunks de tous les documents (plutôt qu'une requête séquentielle par
+ * document), regroupés ensuite en mémoire.
  */
 export async function getDocumentsFullText(
   supabase: SupabaseClient<Database>,
@@ -83,10 +74,33 @@ export async function getDocumentsFullText(
   if (documents.length === 0) return "";
 
   const perDocBudget = Math.max(1000, Math.floor(maxChars / documents.length));
-  const parts: string[] = [];
 
+  const { data, error } = await supabase
+    .from("document_chunks")
+    .select("document_id, content, chunk_index")
+    .in(
+      "document_id",
+      documents.map((d) => d.id),
+    )
+    .order("chunk_index", { ascending: true });
+
+  if (error) throw error;
+
+  const chunksByDocument = new Map<string, { content: string }[]>();
+  for (const chunk of data ?? []) {
+    const list = chunksByDocument.get(chunk.document_id);
+    if (list) list.push(chunk);
+    else chunksByDocument.set(chunk.document_id, [chunk]);
+  }
+
+  const parts: string[] = [];
   for (const doc of documents) {
-    const text = await getDocumentFullText(supabase, doc.id, perDocBudget);
+    let text = "";
+    for (const chunk of chunksByDocument.get(doc.id) ?? []) {
+      if (text.length >= perDocBudget) break;
+      text += (text ? "\n\n" : "") + chunk.content;
+    }
+    text = text.slice(0, perDocBudget);
     if (text) parts.push(`--- ${doc.title} ---\n${text}`);
   }
 

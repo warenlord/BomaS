@@ -6,6 +6,7 @@ import { retrieveRelevantChunks } from "@/lib/ai/rag";
 import { deductCredits, hasEnoughCredits } from "@/lib/credits/ledger";
 import { extractText, type ChatUIMessage, type Citation } from "@/lib/chat/format";
 import { maybeRenameConversation } from "@/lib/chat/queries";
+import { isTextTooLong, MAX_PASTED_TEXT_LENGTH } from "@/lib/ai/limits";
 
 export const maxDuration = 60;
 
@@ -34,6 +35,10 @@ export async function POST(req: Request) {
   const userMessages = messages.filter((m) => m.role === "user");
   const lastUserMessage = userMessages.at(-1);
   const userText = lastUserMessage ? extractText(lastUserMessage) : "";
+
+  if (isTextTooLong(userText)) {
+    return Response.json({ error: "TEXT_TOO_LONG", maxLength: MAX_PASTED_TEXT_LENGTH }, { status: 400 });
+  }
 
   if (userText) {
     await supabase.from("messages").insert({
@@ -80,8 +85,11 @@ export async function POST(req: Request) {
 
       try {
         await deductCredits(supabase, user.id, "chat", { referenceId: conversationId });
-      } catch {
-        // Le message est déjà enregistré : un échec de débit ne doit pas invalider la réponse déjà streamée.
+      } catch (err) {
+        // Le message est déjà enregistré : un échec de débit ne doit pas invalider
+        // la réponse déjà streamée. On journalise quand même — un échec silencieux
+        // rendait ces pertes de crédit invisibles en prod.
+        console.error("Chat credit deduction failed", conversationId, err);
       }
 
       await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);

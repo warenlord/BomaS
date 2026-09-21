@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { QcmContent } from "@/lib/ai/prompts";
+import { qcmSchema } from "@/lib/ai/prompts";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -27,7 +27,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
-  const content = generated.content as QcmContent;
+  const parsed = qcmSchema.safeParse(generated.content);
+  if (!parsed.success) {
+    console.error("Stored QCM content failed validation", generatedContentId, parsed.error);
+    return Response.json({ error: "INVALID_CONTENT" }, { status: 500 });
+  }
+  const content = parsed.data;
   const total = content.questions.length;
   const score = content.questions.reduce(
     (acc, question, i) => (answers[i] === question.correctIndex ? acc + 1 : acc),
@@ -43,6 +48,7 @@ export async function POST(req: Request) {
   });
 
   if (insertError) {
+    console.error("QCM attempt insert failed", generatedContentId, insertError);
     return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
   }
 

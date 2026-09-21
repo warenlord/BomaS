@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ingestDocument } from "@/lib/documents/ingest";
-import { deductCredits, hasEnoughCredits } from "@/lib/credits/ledger";
+import { addCredits, deductCredits, hasEnoughCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
 import type { DocumentFileType } from "@/lib/types/database.types";
 
 export const maxDuration = 300;
@@ -59,10 +60,28 @@ export async function POST(req: Request) {
     return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
   }
 
+  // Les crédits sont réservés AVANT l'ingestion (extraction + embeddings, coûteux
+  // et lent) plutôt qu'après : ça évite qu'une course entre deux requêtes
+  // concurrentes ne laisse passer un document analysé gratuitement, et qu'un
+  // échec de débit après coup laisse un document utilisable mais non facturé.
   try {
-    await ingestDocument(supabase, document.id, buffer, fileType);
     await deductCredits(supabase, user.id, "document_analysis", { referenceId: document.id });
   } catch (err) {
+    await supabase.from("documents").delete().eq("id", document.id);
+    if (err instanceof InsufficientCreditsError) {
+      return Response.json({ error: "INSUFFICIENT_CREDITS" }, { status: 402 });
+    }
+    return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
+  }
+
+  try {
+    await ingestDocument(supabase, document.id, buffer, fileType);
+  } catch (err) {
+    console.error("Document ingestion failed", document.id, err);
+    await addCredits(supabase, user.id, CREDIT_COSTS.document_analysis, "refund", {
+      referenceId: document.id,
+      description: "Remboursement : analyse de document échouée",
+    });
     return Response.json(
       { error: "INGESTION_FAILED", message: err instanceof Error ? err.message : "Erreur inconnue" },
       { status: 500 },

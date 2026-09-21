@@ -1,16 +1,12 @@
 import type { z } from "zod";
 import {
-  qcmSchema,
   flashcardsSchema,
   summarySchema,
   revisionSheetSchema,
-  examSchema,
   memoireAnalysisSchema,
-  qcmPrompt,
   flashcardsPrompt,
   summaryPrompt,
   revisionSheetPrompt,
-  examPrompt,
   memoireAnalysisPrompt,
 } from "@/lib/ai/prompts";
 import type { CreditFeature, GeneratedContentType } from "@/lib/types/database.types";
@@ -28,12 +24,15 @@ export interface GeneratorDefinition {
   build: (input: GeneratorInput) => { system: string; prompt: string };
 }
 
-export const GENERATORS: Record<GeneratedContentType, GeneratorDefinition> = {
-  qcm: {
-    schema: qcmSchema,
-    feature: "qcm",
-    build: (input) => qcmPrompt(input.sourceText, input.questionCount ?? 10),
-  },
+/**
+ * QCM et examen sont volontairement absents de cette table : ils ont leurs
+ * propres routes dédiées (/api/generate/qcm, /api/generate/exam) qui génèrent
+ * et redigent le corrigé côté serveur avant tout envoi au client. Les inclure
+ * ici permettrait à /api/generated-content d'accepter un contenu QCM/examen
+ * fabriqué par le client lui-même (avec ses propres "bonnes réponses"),
+ * contournant tout le dispositif de correction différée.
+ */
+export const GENERATORS: Partial<Record<GeneratedContentType, GeneratorDefinition>> = {
   flashcards: {
     schema: flashcardsSchema,
     feature: "flashcards",
@@ -48,11 +47,6 @@ export const GENERATORS: Record<GeneratedContentType, GeneratorDefinition> = {
     schema: revisionSheetSchema,
     feature: "revision_sheet",
     build: (input) => revisionSheetPrompt(input.sourceText),
-  },
-  exam: {
-    schema: examSchema,
-    feature: "exam",
-    build: (input) => examPrompt(input.sourceText, input.durationMinutes ?? 60),
   },
   memoire_analysis: {
     schema: memoireAnalysisSchema,
