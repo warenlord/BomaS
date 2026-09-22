@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { DocumentPicker, type PickerDocument } from "@/components/tools/document-picker";
+import { ConversationSourceCard, type ConversationSource } from "@/components/tools/conversation-source-card";
 
 export function GeneratorWorkspace<Schema extends z.ZodType>({
   type,
@@ -20,6 +21,7 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
   creditCost,
   documents,
   initialDocumentId,
+  conversationSource,
   extraBody,
   renderControls,
   renderResult,
@@ -30,6 +32,7 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
   creditCost: number;
   documents: PickerDocument[];
   initialDocumentId?: string;
+  conversationSource?: ConversationSource | null;
   extraBody?: Record<string, unknown>;
   renderControls?: (opts: { disabled: boolean }) => ReactNode;
   renderResult: (object: DeepPartial<z.infer<Schema>> | undefined, savedId: string | null) => ReactNode;
@@ -38,6 +41,7 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
   const [savedId, setSavedId] = useState<string | null>(null);
   const [extraDocuments, setExtraDocuments] = useState<PickerDocument[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>(initialDocumentId ? [initialDocumentId] : []);
+  const [includeConversation, setIncludeConversation] = useState(Boolean(conversationSource));
   const router = useRouter();
 
   const allDocuments = [...documents, ...extraDocuments];
@@ -52,7 +56,12 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
         const res = await fetch("/api/generated-content", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type, documentIds: selectedIds, content: finalObject }),
+          body: JSON.stringify({
+            type,
+            documentIds: selectedIds,
+            conversationId: includeConversation ? conversationSource?.id : undefined,
+            content: finalObject,
+          }),
         });
         const data = await res.json();
         if (res.ok) {
@@ -71,14 +80,21 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
   });
 
   const usingDocuments = selectedIds.length > 0;
-  const canSubmit = usingDocuments || text.trim().length > 50;
+  const usingSource = usingDocuments || includeConversation;
+  const canSubmit = usingSource || text.trim().length > 50;
 
   function handleGenerate() {
     setSavedId(null);
-    submit({ documentIds: usingDocuments ? selectedIds : undefined, text: usingDocuments ? undefined : text, ...extraBody });
+    submit({
+      documentIds: usingDocuments ? selectedIds : undefined,
+      conversationId: includeConversation ? conversationSource?.id : undefined,
+      text: usingSource ? undefined : text,
+      ...extraBody,
+    });
   }
 
   const selectedTitles = allDocuments.filter((d) => selectedIds.includes(d.id)).map((d) => d.title);
+  if (includeConversation && conversationSource) selectedTitles.unshift(`Discussion : ${conversationSource.title}`);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 print:max-w-none print:p-0">
@@ -96,9 +112,17 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
           )}
         </div>
 
+        {conversationSource && (
+          <ConversationSourceCard
+            title={conversationSource.title}
+            checked={includeConversation}
+            onChange={setIncludeConversation}
+          />
+        )}
+
         <DocumentPicker documents={allDocuments} selectedIds={selectedIds} onChange={setSelectedIds} />
 
-        {!usingDocuments && (
+        {!usingSource && (
           <div className="mb-4 space-y-3">
             {allDocuments.length > 0 && (
               <div className="flex items-center gap-3">

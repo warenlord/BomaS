@@ -4,7 +4,7 @@ import { chatModel } from "@/lib/ai/openai";
 import { qcmSchemaForCount, qcmPrompt } from "@/lib/ai/prompts";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { addCredits, deductCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
-import { getDocumentsByIds, getDocumentsFullText } from "@/lib/documents/queries";
+import { resolveSource } from "@/lib/ai/source";
 import { isTextTooLong, MAX_PASTED_TEXT_LENGTH } from "@/lib/ai/limits";
 
 export const maxDuration = 120;
@@ -35,24 +35,27 @@ export async function POST(req: Request) {
 
   const body = (await req.json()) as {
     documentIds?: string[];
+    conversationId?: string;
     text?: string;
     questionCount?: 10 | 20 | 50;
   };
 
-  let sourceText = body.text ?? "";
   const documentIds = body.documentIds ?? [];
-  let documentTitle: string | null = null;
+  const usingSource = documentIds.length > 0 || Boolean(body.conversationId);
 
-  if (documentIds.length > 0) {
-    const selected = await getDocumentsByIds(supabase, user.id, documentIds);
-    if (selected.length !== documentIds.length) {
-      return Response.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
-    }
-    documentTitle = selected.length === 1 ? selected[0].title : `${selected.length} documents`;
-    sourceText = await getDocumentsFullText(supabase, selected);
-  } else if (isTextTooLong(sourceText)) {
+  if (!usingSource && isTextTooLong(body.text ?? "")) {
     return Response.json({ error: "TEXT_TOO_LONG", maxLength: MAX_PASTED_TEXT_LENGTH }, { status: 400 });
   }
+
+  const resolved = await resolveSource(supabase, user.id, {
+    documentIds,
+    conversationId: body.conversationId,
+    text: body.text,
+  });
+  if (!resolved.ok) {
+    return Response.json({ error: resolved.error }, { status: 404 });
+  }
+  const { sourceText, title: documentTitle } = resolved;
 
   if (!sourceText.trim()) {
     return Response.json({ error: "NO_SOURCE_TEXT" }, { status: 400 });

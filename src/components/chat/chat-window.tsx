@@ -5,11 +5,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { AlertCircle, FileText } from "lucide-react";
+import { AlertCircle, FileText, Sparkles, ListChecks, Layers, NotebookPen, FileStack, ClipboardCheck } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { MessageInput } from "@/components/chat/message-input";
 import { SuggestionChips } from "@/components/chat/suggestion-chips";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { ChatUIMessage } from "@/lib/chat/format";
+
+const TOOLS_FROM_DISCUSSION = [
+  { href: "qcm", icon: ListChecks, label: "Créer un QCM" },
+  { href: "flashcards", icon: Layers, label: "Créer des flashcards" },
+  { href: "summary", icon: FileStack, label: "Créer un résumé" },
+  { href: "revision-sheet", icon: NotebookPen, label: "Créer une fiche de révision" },
+  { href: "exam", icon: ClipboardCheck, label: "Préparer un examen" },
+];
 
 export function ChatWindow({
   conversationId,
@@ -98,14 +113,36 @@ export function ChatWindow({
 
   return (
     <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col md:h-screen">
-      {documentTitle && (
-        <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 text-sm text-muted-foreground">
-          <FileText className="size-4 text-primary" />
-          <span className="truncate">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3 text-sm text-muted-foreground">
+        {documentTitle ? (
+          <span className="flex min-w-0 items-center gap-2 truncate">
+            <FileText className="size-4 shrink-0 text-primary" />
             À propos de <span className="font-medium text-foreground">{documentTitle}</span>
           </span>
-        </div>
-      )}
+        ) : (
+          <span />
+        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+            <Sparkles className="size-3.5" />
+            Créer avec cette discussion
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {TOOLS_FROM_DISCUSSION.map((tool) => (
+              <DropdownMenuItem
+                key={tool.href}
+                render={
+                  <Link href={`/tools/${tool.href}?conversationId=${conversationId}`}>
+                    <tool.icon className="size-4" />
+                    {tool.label}
+                  </Link>
+                }
+              />
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
         {messages.map((message) => (

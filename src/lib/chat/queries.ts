@@ -49,6 +49,23 @@ export async function getConversation(supabase: SupabaseClient<Database>, conver
   return data;
 }
 
+/**
+ * Résout une discussion comme source potentielle pour un générateur (utilisé
+ * par les pages /tools/* quand on y arrive depuis le menu "Créer avec cette
+ * discussion" du chat), avec vérification de propriété. Retourne `null` si
+ * l'id est absent, introuvable, ou n'appartient pas à l'utilisateur.
+ */
+export async function getConversationSource(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  conversationId?: string,
+): Promise<{ id: string; title: string } | null> {
+  if (!conversationId) return null;
+  const conversation = await getConversation(supabase, conversationId);
+  if (!conversation || conversation.user_id !== userId) return null;
+  return { id: conversation.id, title: conversation.title };
+}
+
 export async function getConversationMessages(supabase: SupabaseClient<Database>, conversationId: string) {
   const { data, error } = await supabase
     .from("messages")
@@ -58,6 +75,34 @@ export async function getConversationMessages(supabase: SupabaseClient<Database>
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Transcrit une discussion en texte utilisable comme source pour les
+ * générateurs (QCM, fiche, etc.). Si la discussion dépasse le budget de
+ * caractères, on garde les messages les plus RÉCENTS plutôt que le début :
+ * ce qui vient d'être discuté est généralement plus pertinent à réviser que
+ * les tout premiers échanges d'une longue conversation.
+ */
+export async function getConversationText(
+  supabase: SupabaseClient<Database>,
+  conversationId: string,
+  maxChars = 14000,
+): Promise<string> {
+  const messages = await getConversationMessages(supabase, conversationId);
+
+  const lines: string[] = [];
+  let total = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    const label = m.role === "user" ? "Étudiant" : "Assistant";
+    const line = `${label} : ${m.content}`;
+    if (total + line.length > maxChars) break;
+    lines.unshift(line);
+    total += line.length;
+  }
+
+  return lines.join("\n\n");
 }
 
 /** Renomme automatiquement une conversation à partir du premier message utilisateur. */

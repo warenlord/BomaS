@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { DocumentPicker, type PickerDocument } from "@/components/tools/document-picker";
+import { ConversationSourceCard, type ConversationSource } from "@/components/tools/conversation-source-card";
 import { QcmView, type RedactedQcm } from "@/components/tools/qcm-view";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 
@@ -25,14 +26,17 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function QcmTool({
   documents,
   initialDocumentId,
+  conversationSource,
 }: {
   documents: PickerDocument[];
   initialDocumentId?: string;
+  conversationSource?: ConversationSource | null;
 }) {
   const [questionCount, setQuestionCount] = useState<10 | 20 | 50>(10);
   const [text, setText] = useState("");
   const [extraDocuments, setExtraDocuments] = useState<PickerDocument[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>(initialDocumentId ? [initialDocumentId] : []);
+  const [includeConversation, setIncludeConversation] = useState(Boolean(conversationSource));
   const [isLoading, setIsLoading] = useState(false);
   const [quiz, setQuiz] = useState<RedactedQcm | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +44,10 @@ export function QcmTool({
 
   const allDocuments = [...documents, ...extraDocuments];
   const usingDocuments = selectedIds.length > 0;
-  const canSubmit = usingDocuments || text.trim().length > 50;
+  const usingSource = usingDocuments || includeConversation;
+  const canSubmit = usingSource || text.trim().length > 50;
   const selectedTitles = allDocuments.filter((d) => selectedIds.includes(d.id)).map((d) => d.title);
+  if (includeConversation && conversationSource) selectedTitles.unshift(`Discussion : ${conversationSource.title}`);
 
   async function handleGenerate() {
     setIsLoading(true);
@@ -53,7 +59,8 @@ export function QcmTool({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           documentIds: usingDocuments ? selectedIds : undefined,
-          text: usingDocuments ? undefined : text,
+          conversationId: includeConversation ? conversationSource?.id : undefined,
+          text: usingSource ? undefined : text,
           questionCount,
         }),
       });
@@ -86,9 +93,17 @@ export function QcmTool({
         )}
       </div>
 
+      {conversationSource && (
+        <ConversationSourceCard
+          title={conversationSource.title}
+          checked={includeConversation}
+          onChange={setIncludeConversation}
+        />
+      )}
+
       <DocumentPicker documents={allDocuments} selectedIds={selectedIds} onChange={setSelectedIds} />
 
-      {!usingDocuments && (
+      {!usingSource && (
         <div className="mb-4 space-y-3">
           {allDocuments.length > 0 && (
             <div className="flex items-center gap-3">

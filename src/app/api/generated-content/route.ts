@@ -3,6 +3,8 @@ import { GENERATORS } from "@/lib/ai/generators";
 import { CREDIT_COSTS } from "@/lib/credits/costs";
 import { deductCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
 import { getDocumentsByIds } from "@/lib/documents/queries";
+import { getConversation } from "@/lib/chat/queries";
+import { buildSourceTitle } from "@/lib/ai/source";
 import type { GeneratedContentType } from "@/lib/types/database.types";
 
 /**
@@ -22,6 +24,7 @@ export async function POST(req: Request) {
   const body = (await req.json()) as {
     type?: string;
     documentIds?: string[];
+    conversationId?: string;
     content?: unknown;
   };
 
@@ -36,17 +39,26 @@ export async function POST(req: Request) {
   }
 
   const documentIds = body.documentIds ?? [];
-  let documentTitle: string | null = null;
+  let documents: { title: string }[] = [];
+  let conversationTitle: string | null = null;
 
   if (documentIds.length > 0) {
-    const selected = await getDocumentsByIds(supabase, user.id, documentIds);
-    if (selected.length !== documentIds.length) {
+    documents = await getDocumentsByIds(supabase, user.id, documentIds);
+    if (documents.length !== documentIds.length) {
       return Response.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
     }
-    documentTitle = selected.length === 1 ? selected[0].title : `${selected.length} documents`;
   }
 
-  const title = (parsed.data as { title?: string }).title?.trim() || documentTitle || "Contenu généré";
+  if (body.conversationId) {
+    const conversation = await getConversation(supabase, body.conversationId);
+    if (!conversation || conversation.user_id !== user.id) {
+      return Response.json({ error: "CONVERSATION_NOT_FOUND" }, { status: 404 });
+    }
+    conversationTitle = conversation.title;
+  }
+
+  const title =
+    (parsed.data as { title?: string }).title?.trim() || buildSourceTitle(conversationTitle, documents) || "Contenu généré";
 
   const { data: saved, error: insertError } = await supabase
     .from("generated_content")
