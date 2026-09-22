@@ -67,7 +67,11 @@ export function RevisionSheetView({ object }: { object: DeepPartial<RevisionShee
               return (
                 <div
                   key={i}
-                  className={cn("rounded-md p-3 text-[13px] leading-snug", meta.className, meta.wide && "sm:col-span-2")}
+                  className={cn(
+                    "break-inside-avoid rounded-md p-3 text-[13px] leading-snug",
+                    meta.className,
+                    meta.wide && "sm:col-span-2",
+                  )}
                 >
                   <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-black/60 uppercase">
                     <Icon className="size-3.5" />
