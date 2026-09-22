@@ -6,15 +6,16 @@ import { retrieveRelevantChunks } from "@/lib/ai/rag";
 import { deductCredits, hasEnoughCredits } from "@/lib/credits/ledger";
 import { extractText, type ChatUIMessage, type Citation } from "@/lib/chat/format";
 import { maybeRenameConversation } from "@/lib/chat/queries";
+import { getDocumentsByIds } from "@/lib/documents/queries";
 import { isTextTooLong, MAX_PASTED_TEXT_LENGTH } from "@/lib/ai/limits";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  const { messages, conversationId, documentId } = (await req.json()) as {
+  const { messages, conversationId, documentIds } = (await req.json()) as {
     messages: ChatUIMessage[];
     conversationId?: string;
-    documentId?: string;
+    documentIds?: string[];
   };
 
   const supabase = await createClient();
@@ -55,16 +56,45 @@ export async function POST(req: Request) {
   let system = CHAT_SYSTEM_PROMPT;
   let citations: Citation[] = [];
 
-  if (documentId) {
-    const { data: document } = await supabase.from("documents").select("title").eq("id", documentId).single();
-    if (document) {
-      const chunks = await retrieveRelevantChunks(supabase, documentId, userText);
-      citations = chunks.map((c) => ({ chunkIndex: c.chunkIndex, excerpt: c.content.slice(0, 240) }));
-      system = ragSystemPrompt(
-        document.title,
-        chunks.map((c) => ({ index: c.chunkIndex, content: c.content })),
-      );
-    }
+  // Les documents attachés viennent du client à chaque requête (menu pièce-
+  // jointe, @mention, glisser-déposer) : on revalide toujours leur
+  // appartenance ici plutôt que de faire confiance à la liste envoyée, et on
+  // persiste le résultat sur la conversation pour qu'il survive au rechargement.
+  // Si le client n'envoie rien du tout (documentIds absent, pas juste vide),
+  // on retombe sur ce qui est déjà persisté plutôt que d'effacer l'existant.
+  let documents: { id: string; title: string; subject: string | null }[] = [];
+
+  if (documentIds !== undefined) {
+    const requestedIds = [...new Set(documentIds)];
+    documents = requestedIds.length > 0 ? await getDocumentsByIds(supabase, user.id, requestedIds) : [];
+    await supabase
+      .from("conversations")
+      .update({ document_ids: documents.map((d) => d.id), document_id: documents[0]?.id ?? null })
+      .eq("id", conversationId);
+  } else {
+    const { data: conversation } = await supabase
+      .from("conversations")
+      .select("document_ids, document_id")
+      .eq("id", conversationId)
+      .single();
+    const existingIds = conversation?.document_ids?.length
+      ? conversation.document_ids
+      : conversation?.document_id
+        ? [conversation.document_id]
+        : [];
+    documents = existingIds.length > 0 ? await getDocumentsByIds(supabase, user.id, existingIds) : [];
+  }
+
+  if (documents.length > 0) {
+    const chunks = await retrieveRelevantChunks(supabase, documents, userText);
+    citations = chunks.map((c, i) => ({
+      index: i + 1,
+      excerpt: c.content.slice(0, 240),
+      documentId: c.documentId,
+      documentTitle: c.documentTitle,
+      chunkIndex: c.chunkIndex,
+    }));
+    system = ragSystemPrompt(chunks.map((c) => ({ documentTitle: c.documentTitle, content: c.content })));
   }
 
   const result = streamText({

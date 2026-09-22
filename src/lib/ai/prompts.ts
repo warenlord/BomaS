@@ -9,14 +9,18 @@ Règles :
 - Si la question sort du cadre académique/étude, réponds brièvement puis recentre poliment sur l'apprentissage.
 - Ne donne jamais de réponse dangereuse, discriminatoire ou hors-sujet académique.`;
 
-export function ragSystemPrompt(documentTitle: string, contextChunks: { index: number; content: string }[]) {
-  const context = contextChunks
-    .map((c) => `[Extrait ${c.index + 1}]\n${c.content}`)
-    .join("\n\n");
+export function ragSystemPrompt(contextChunks: { documentTitle: string; content: string }[]) {
+  const context = contextChunks.map((c, i) => `[Extrait ${i + 1} — ${c.documentTitle}]\n${c.content}`).join("\n\n");
+
+  const documentTitles = [...new Set(contextChunks.map((c) => c.documentTitle))];
+  const subject =
+    documentTitles.length === 1
+      ? `du document "${documentTitles[0]}"`
+      : `des documents suivants : ${documentTitles.map((t) => `"${t}"`).join(", ")}`;
 
   return `${CHAT_SYSTEM_PROMPT}
 
-Tu réponds ici à propos du document "${documentTitle}". Utilise UNIQUEMENT les extraits ci-dessous comme source de vérité pour ce document. Si l'information n'y figure pas, dis-le clairement au lieu d'inventer.
+Tu réponds ici à propos ${subject}. Utilise UNIQUEMENT les extraits ci-dessous comme source de vérité. Si l'information n'y figure pas, dis-le clairement au lieu d'inventer.
 Quand tu t'appuies sur un extrait, cite-le sous la forme (Extrait n).
 
 ${context}`;

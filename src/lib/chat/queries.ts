@@ -14,6 +14,7 @@ export async function createConversation(
     .insert({
       user_id: userId,
       document_id: documentId ?? null,
+      document_ids: documentId ? [documentId] : [],
       title: title ?? "Nouvelle conversation",
     })
     .select("*")

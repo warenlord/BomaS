@@ -17,7 +17,7 @@ export function MessageBubble({
   message: ChatUIMessage;
   onRegenerate?: (messageId: string) => void;
   onFeedback?: (messageId: string, feedback: "up" | "down") => void;
-  onCitationClick?: (chunkIndex: number) => void;
+  onCitationClick?: (documentId: string, chunkIndex: number) => void;
 }) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
@@ -80,23 +80,23 @@ export function MessageBubble({
           {citations.map((c) =>
             onCitationClick ? (
               <button
-                key={c.chunkIndex}
+                key={c.index}
                 type="button"
                 title={c.excerpt}
-                onClick={() => onCitationClick(c.chunkIndex)}
+                onClick={() => onCitationClick(c.documentId, c.chunkIndex)}
                 className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
               >
                 <FileText className="size-3" />
-                Extrait {c.chunkIndex + 1}
+                Extrait {c.index}
               </button>
             ) : (
               <span
-                key={c.chunkIndex}
+                key={c.index}
                 title={c.excerpt}
                 className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
               >
                 <FileText className="size-3" />
-                Extrait {c.chunkIndex + 1}
+                Extrait {c.index}
               </span>
             ),
           )}

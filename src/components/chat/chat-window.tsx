@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import { toast } from "sonner";
 import {
   AlertCircle,
-  FileText,
   BookOpen,
   Sparkles,
   ListChecks,
@@ -15,11 +15,15 @@ import {
   NotebookPen,
   FileStack,
   ClipboardCheck,
+  X,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { MessageInput } from "@/components/chat/message-input";
 import { SuggestionChips } from "@/components/chat/suggestion-chips";
-import { DocumentPanel, type DocumentChunk } from "@/components/chat/document-panel";
+import { DocumentPanel, type DocumentWithChunks } from "@/components/chat/document-panel";
+import { DocumentAttachMenu } from "@/components/chat/document-attach-menu";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
@@ -28,7 +32,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { createClient } from "@/lib/supabase/client";
 import type { ChatUIMessage } from "@/lib/chat/format";
+import type { PickerDocument } from "@/components/tools/document-picker";
 
 const TOOLS_FROM_DISCUSSION = [
   { href: "qcm", icon: ListChecks, label: "Créer un QCM" },
@@ -38,52 +44,132 @@ const TOOLS_FROM_DISCUSSION = [
   { href: "exam", icon: ClipboardCheck, label: "Préparer un examen" },
 ];
 
+const ACCEPTED_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
 export function ChatWindow({
   conversationId,
-  documentId,
-  documentTitle,
-  documentChunks,
+  initialAttachedDocuments,
+  documentsWithChunks,
+  availableDocuments,
   initialMessages,
   autoSendText,
   greeting,
 }: {
   conversationId: string;
-  documentId?: string | null;
-  documentTitle?: string | null;
-  documentChunks?: DocumentChunk[];
+  initialAttachedDocuments: PickerDocument[];
+  documentsWithChunks: DocumentWithChunks[];
+  availableDocuments: PickerDocument[];
   initialMessages: ChatUIMessage[];
   autoSendText?: string;
   greeting?: string;
 }) {
   const [input, setInput] = useState("");
+  const [attachedDocuments, setAttachedDocuments] = useState<PickerDocument[]>(initialAttachedDocuments);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [highlightedChunk, setHighlightedChunk] = useState<number | null>(null);
+  const [highlighted, setHighlighted] = useState<{ documentId: string; chunkIndex: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const autoSentRef = useRef(false);
   const router = useRouter();
 
-  function openDocumentAt(chunkIndex: number) {
-    setHighlightedChunk(chunkIndex);
+  const documentIds = attachedDocuments.map((d) => d.id);
+  const attachableDocuments = availableDocuments.filter((d) => !documentIds.includes(d.id));
+
+  function openDocumentAt(documentId: string, chunkIndex: number) {
+    setHighlighted({ documentId, chunkIndex });
     setPanelOpen(true);
   }
 
   useEffect(() => {
-    if (!panelOpen || highlightedChunk === null) return;
+    if (!panelOpen || !highlighted) return;
     // Petit délai pour laisser le panneau (Sheet) finir son animation
     // d'ouverture avant de calculer la position de scroll.
     const timeout = setTimeout(() => {
-      document.getElementById(`chunk-${highlightedChunk}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document
+        .getElementById(`chunk-${highlighted.documentId}-${highlighted.chunkIndex}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 200);
     return () => clearTimeout(timeout);
-  }, [panelOpen, highlightedChunk]);
+  }, [panelOpen, highlighted]);
+
+  async function persistAttachedDocuments(next: PickerDocument[]) {
+    await fetch(`/api/conversations/${conversationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentIds: next.map((d) => d.id) }),
+    });
+    router.refresh();
+  }
+
+  function attachDocument(doc: PickerDocument) {
+    if (documentIds.includes(doc.id)) return;
+    const next = [...attachedDocuments, doc];
+    setAttachedDocuments(next);
+    void persistAttachedDocuments(next);
+  }
+
+  function detachDocument(id: string) {
+    const next = attachedDocuments.filter((d) => d.id !== id);
+    setAttachedDocuments(next);
+    void persistAttachedDocuments(next);
+  }
+
+  async function uploadAndAttach(file: File) {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast.error("Format non supporté. Utilise un PDF ou un fichier Word (.docx).");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const urlRes = await fetch("/api/documents/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
+      });
+      const urlData = await urlRes.json();
+      if (!urlRes.ok) {
+        toast.error("Impossible de préparer l'envoi. Réessaie.");
+        return;
+      }
+
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .uploadToSignedUrl(urlData.path, urlData.token, file);
+      if (uploadError) {
+        toast.error("L'envoi du fichier a échoué. Réessaie.");
+        return;
+      }
+
+      const processRes = await fetch("/api/documents/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: urlData.path, title: urlData.title, fileType: urlData.fileType, subject: null }),
+      });
+      const processData = await processRes.json();
+      if (!processRes.ok) {
+        toast.error("L'analyse du document a échoué. Réessaie avec un autre fichier.");
+        return;
+      }
+
+      toast.success(`"${processData.document.title}" a été importé et attaché à la discussion.`);
+      attachDocument({ id: processData.document.id, title: processData.document.title, subject: null });
+    } catch {
+      toast.error("Une erreur réseau est survenue. Réessaie.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   const { messages, sendMessage, regenerate, status, error } = useChat<ChatUIMessage>({
     id: conversationId,
     messages: initialMessages,
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      body: { conversationId, documentId: documentId ?? undefined },
-    }),
+    transport: new DefaultChatTransport({ api: "/api/chat", body: { conversationId } }),
     onFinish: () => {
       // Le crédit vient d'être débité côté serveur : on rafraîchit les
       // données serveur (jauge de crédits dans la sidebar, historique...)
@@ -102,14 +188,15 @@ export function ChatWindow({
   useEffect(() => {
     if (autoSendText && !autoSentRef.current) {
       autoSentRef.current = true;
-      sendMessage({ text: autoSendText });
+      sendMessage({ text: autoSendText }, { body: { documentIds } });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSendText, sendMessage]);
 
   function handleSubmit() {
     const text = input;
     setInput("");
-    sendMessage({ text });
+    sendMessage({ text }, { body: { documentIds } });
   }
 
   async function handleFeedback(messageId: string, feedback: "up" | "down") {
@@ -125,6 +212,58 @@ export function ChatWindow({
     }
   }
 
+  const attachMenu = (
+    <DocumentAttachMenu
+      documents={attachableDocuments}
+      open={attachMenuOpen}
+      onOpenChange={setAttachMenuOpen}
+      onSelect={attachDocument}
+      onImportClick={() => fileInputRef.current?.click()}
+    />
+  );
+
+  const chips = attachedDocuments.length > 0 && (
+    <div className="mb-2 flex flex-wrap gap-1.5">
+      {attachedDocuments.map((doc) => (
+        <span
+          key={doc.id}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted px-2.5 py-1 text-xs font-medium"
+        >
+          <FileText className="size-3 text-primary" />
+          <span className="max-w-40 truncate">{doc.title}</span>
+          <button
+            type="button"
+            onClick={() => detachDocument(doc.id)}
+            aria-label={`Détacher ${doc.title}`}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      ))}
+      {isUploading && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          Import en cours...
+        </span>
+      )}
+    </div>
+  );
+
+  const hiddenFileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      className="hidden"
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) void uploadAndAttach(file);
+        e.target.value = "";
+      }}
+    />
+  );
+
   if (isEmpty) {
     return (
       <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col justify-center px-4 pb-24 md:h-screen">
@@ -134,8 +273,19 @@ export function ChatWindow({
           </h1>
 
           <div className="w-full max-w-2xl space-y-5">
-            <MessageInput value={input} onChange={setInput} onSubmit={handleSubmit} disabled={isBusy} autoFocus />
-            {!documentId && <SuggestionChips onSelect={setInput} />}
+            {hiddenFileInput}
+            <MessageInput
+              value={input}
+              onChange={setInput}
+              onSubmit={handleSubmit}
+              disabled={isBusy}
+              autoFocus
+              attachMenu={attachMenu}
+              chips={chips}
+              onDropFiles={(files) => void uploadAndAttach(files[0])}
+              onAtKey={() => setAttachMenuOpen(true)}
+            />
+            {attachedDocuments.length === 0 && <SuggestionChips onSelect={setInput} />}
           </div>
 
           {error && (
@@ -158,20 +308,26 @@ export function ChatWindow({
   return (
     <div className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-3xl flex-col md:h-screen">
       <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3 text-sm text-muted-foreground">
-        {documentTitle ? (
+        {attachedDocuments.length > 0 ? (
           <span className="flex min-w-0 items-center gap-2 truncate">
             <FileText className="size-4 shrink-0 text-primary" />
-            À propos de <span className="font-medium text-foreground">{documentTitle}</span>
+            {attachedDocuments.length === 1 ? (
+              <>
+                À propos de <span className="font-medium text-foreground">{attachedDocuments[0].title}</span>
+              </>
+            ) : (
+              <span className="font-medium text-foreground">{attachedDocuments.length} documents attachés</span>
+            )}
           </span>
         ) : (
           <span />
         )}
 
         <div className="flex items-center gap-2">
-          {documentChunks && documentChunks.length > 0 && (
+          {documentsWithChunks.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => setPanelOpen(true)}>
               <BookOpen className="size-3.5" />
-              Voir le document
+              Voir le{documentsWithChunks.length > 1 ? "s documents" : " document"}
             </Button>
           )}
 
@@ -197,10 +353,10 @@ export function ChatWindow({
         </div>
       </div>
 
-      {documentChunks && (
+      {documentsWithChunks.length > 0 && (
         <Sheet open={panelOpen} onOpenChange={setPanelOpen}>
           <SheetContent side="right" className="w-full p-0 sm:max-w-md lg:max-w-lg">
-            <DocumentPanel title={documentTitle ?? "Document"} chunks={documentChunks} highlightedChunk={highlightedChunk} />
+            <DocumentPanel documents={documentsWithChunks} highlighted={highlighted} />
           </SheetContent>
         </Sheet>
       )}
@@ -210,9 +366,9 @@ export function ChatWindow({
           <MessageBubble
             key={message.id}
             message={message}
-            onRegenerate={(id) => regenerate({ messageId: id })}
+            onRegenerate={(id) => regenerate({ messageId: id, body: { documentIds } })}
             onFeedback={handleFeedback}
-            onCitationClick={documentChunks ? openDocumentAt : undefined}
+            onCitationClick={documentsWithChunks.length > 0 ? openDocumentAt : undefined}
           />
         ))}
         <div ref={bottomRef} />
@@ -231,7 +387,17 @@ export function ChatWindow({
             </span>
           </div>
         )}
-        <MessageInput value={input} onChange={setInput} onSubmit={handleSubmit} disabled={isBusy} />
+        {hiddenFileInput}
+        <MessageInput
+          value={input}
+          onChange={setInput}
+          onSubmit={handleSubmit}
+          disabled={isBusy}
+          attachMenu={attachMenu}
+          chips={chips}
+          onDropFiles={(files) => void uploadAndAttach(files[0])}
+          onAtKey={() => setAttachMenuOpen(true)}
+        />
         <p className="mt-2 text-center text-[11px] text-muted-foreground">
           BomaSchool peut faire des erreurs. Vérifie les informations importantes.
         </p>

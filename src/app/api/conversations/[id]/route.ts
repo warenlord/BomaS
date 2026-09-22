@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getDocumentsByIds } from "@/lib/documents/queries";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -10,10 +11,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const body = (await req.json()) as { title?: string; pinned?: boolean };
-  const update: { title?: string; pinned?: boolean } = {};
+  const body = (await req.json()) as { title?: string; pinned?: boolean; documentIds?: string[] };
+  const update: { title?: string; pinned?: boolean; document_ids?: string[]; document_id?: string | null } = {};
   if (typeof body.title === "string" && body.title.trim()) update.title = body.title.trim().slice(0, 80);
   if (typeof body.pinned === "boolean") update.pinned = body.pinned;
+  if (Array.isArray(body.documentIds)) {
+    const documents =
+      body.documentIds.length > 0 ? await getDocumentsByIds(supabase, user.id, [...new Set(body.documentIds)]) : [];
+    update.document_ids = documents.map((d) => d.id);
+    update.document_id = documents[0]?.id ?? null;
+  }
 
   if (Object.keys(update).length === 0) {
     return Response.json({ error: "NO_CHANGES" }, { status: 400 });

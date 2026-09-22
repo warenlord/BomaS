@@ -2,8 +2,13 @@ import type { UIMessage } from "ai";
 import type { Database } from "@/lib/types/database.types";
 
 export interface Citation {
-  chunkIndex: number;
+  /** Position parmi les extraits fournis au modèle pour ce message (correspond au "(Extrait n)" cité dans la réponse). */
+  index: number;
   excerpt: string;
+  documentId: string;
+  documentTitle: string;
+  /** Index du chunk au sein de SON document, pour le retrouver dans le panneau document. */
+  chunkIndex: number;
 }
 
 export type ChatMessageMetadata = {

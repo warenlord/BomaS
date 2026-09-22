@@ -157,6 +157,7 @@ export interface Database {
           id: string;
           user_id: string;
           document_id: string | null;
+          document_ids: string[];
           title: string;
           pinned: boolean;
           created_at: string;
