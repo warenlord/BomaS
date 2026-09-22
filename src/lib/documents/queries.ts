@@ -59,6 +59,22 @@ export async function countReadyDocuments(supabase: SupabaseClient<Database>, us
 }
 
 /**
+ * Chunks ordonnés d'un document pour un affichage humain (mode écran
+ * partagé dans le chat) — contrairement à getDocumentsFullText, pas de
+ * plafond de caractères : ce n'est pas injecté dans un prompt IA.
+ */
+export async function getDocumentChunksForDisplay(supabase: SupabaseClient<Database>, documentId: string) {
+  const { data, error } = await supabase
+    .from("document_chunks")
+    .select("chunk_index, content")
+    .eq("document_id", documentId)
+    .order("chunk_index", { ascending: true });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Combine le texte de plusieurs documents (ex : plusieurs chapitres d'une
  * même matière) pour un examen ou un QCM qui les couvre tous. Le budget de
  * caractères est réparti équitablement entre les documents pour qu'un gros

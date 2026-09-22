@@ -157,3 +157,50 @@ export const getCachedUsageStats = cache(async (userId: string) => {
   const supabase = await createClient();
   return getUsageStats(supabase, userId);
 });
+
+/**
+ * Série de jours consécutifs (streak) avec au moins une action facturée.
+ * Calculée à la volée à partir de credit_transactions (type "usage") plutôt
+ * que stockée : évite une nouvelle table/colonne pour une donnée entièrement
+ * dérivable de l'historique déjà existant.
+ */
+export async function getStreak(supabase: SupabaseClient<Database>, userId: string): Promise<number> {
+  const since = new Date();
+  since.setDate(since.getDate() - 120);
+
+  const { data, error } = await supabase
+    .from("credit_transactions")
+    .select("created_at")
+    .eq("user_id", userId)
+    .eq("type", "usage")
+    .gte("created_at", since.toISOString())
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return 0;
+
+  const activeDays = new Set(data.map((tx) => new Date(tx.created_at).toDateString()));
+
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  // Si rien n'a été fait aujourd'hui, la série peut quand même être "en vie"
+  // jusqu'à la fin de la journée : on commence de vérifier à partir d'hier
+  // si le jour courant n'a pas encore d'activité.
+  if (!activeDays.has(cursor.toDateString())) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  let streak = 0;
+  while (activeDays.has(cursor.toDateString())) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+export const getCachedStreak = cache(async (userId: string) => {
+  const supabase = await createClient();
+  return getStreak(supabase, userId);
+});

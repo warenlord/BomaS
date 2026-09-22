@@ -158,6 +158,7 @@ export interface Database {
           user_id: string;
           document_id: string | null;
           title: string;
+          pinned: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -172,6 +173,7 @@ export interface Database {
           role: MessageRole;
           content: string;
           citations: unknown | null;
+          feedback: "up" | "down" | null;
           credits_used: number;
           created_at: string;
         };

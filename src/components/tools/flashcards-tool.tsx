@@ -25,7 +25,7 @@ export function FlashcardsTool({
       documents={documents}
       initialDocumentId={initialDocumentId}
       conversationSource={conversationSource}
-      renderResult={(object) => <FlashcardsView object={object} />}
+      renderResult={(object, savedId) => <FlashcardsView object={object} savedId={savedId} />}
     />
   );
 }

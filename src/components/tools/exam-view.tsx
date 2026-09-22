@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Maximize, Minimize, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -22,17 +22,54 @@ interface Correction {
   points: number;
 }
 
+function formatTime(totalSeconds: number) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export function ExamView({ exam }: { exam: RedactedExam }) {
   const [qcmAnswers, setQcmAnswers] = useState<Record<number, number>>({});
   const [openAnswers, setOpenAnswers] = useState<Record<number, string>>({});
   const [corrections, setCorrections] = useState<Correction[] | null>(null);
   const [result, setResult] = useState<{ score: number; totalQcmPoints: number; totalPoints: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(exam.durationMinutes * 60);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const questionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const submitted = corrections !== null;
-  const allAnswered = exam.questions.every((q, i) =>
-    q.type === "qcm" ? qcmAnswers[i] !== undefined : (openAnswers[i]?.trim().length ?? 0) > 0,
-  );
+  const isAnswered = (i: number) =>
+    exam.questions[i].type === "qcm" ? qcmAnswers[i] !== undefined : (openAnswers[i]?.trim().length ?? 0) > 0;
+  const allAnswered = exam.questions.every((_, i) => isAnswered(i));
+
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    if (submitted || secondsLeft <= 0) return;
+    const interval = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(interval);
+  }, [submitted, secondsLeft]);
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await containerRef.current?.requestFullscreen();
+    }
+  }
+
+  function scrollToQuestion(i: number) {
+    questionRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   async function handleSubmit() {
     setIsSubmitting(true);
@@ -49,6 +86,7 @@ export function ExamView({ exam }: { exam: RedactedExam }) {
       if (res.ok) {
         setResult({ score: data.score, totalQcmPoints: data.totalQcmPoints, totalPoints: data.totalPoints });
         setCorrections(data.corrections);
+        if (document.fullscreenElement) await document.exitFullscreen();
       } else {
         toast.error("La correction a échoué. Réessaie.");
       }
@@ -59,12 +97,49 @@ export function ExamView({ exam }: { exam: RedactedExam }) {
     }
   }
 
+  const totalSeconds = exam.durationMinutes * 60;
+  const timeIsLow = !submitted && secondsLeft <= Math.min(300, totalSeconds * 0.2);
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div ref={containerRef} className={cn("space-y-4", isFullscreen && "overflow-y-auto bg-background p-4")}>
+      <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 bg-background/95 px-1 py-2 backdrop-blur">
         <h2 className="font-semibold">{exam.title}</h2>
-        <Badge variant="secondary">{exam.durationMinutes} min</Badge>
+        <div className="flex items-center gap-2">
+          {!submitted && (
+            <span
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
+                timeIsLow ? "animate-pulse border-destructive/40 bg-destructive/10 text-destructive" : "border-border/60 bg-muted text-foreground",
+              )}
+            >
+              <Clock className="size-3.5" />
+              {formatTime(secondsLeft)}
+            </span>
+          )}
+          <Badge variant="secondary">{exam.durationMinutes} min</Badge>
+          <Button variant="outline" size="icon-sm" onClick={toggleFullscreen} aria-label="Plein écran">
+            {isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+          </Button>
+        </div>
       </div>
+
+      {!submitted && (
+        <div className="flex flex-wrap gap-1.5">
+          {exam.questions.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => scrollToQuestion(i)}
+              className={cn(
+                "flex size-7 items-center justify-center rounded-lg border text-xs font-medium transition-colors",
+                isAnswered(i) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
 
       {result && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-center">
@@ -81,7 +156,13 @@ export function ExamView({ exam }: { exam: RedactedExam }) {
       {exam.questions.map((q, i) => {
         const correction = corrections?.[i];
         return (
-          <div key={i} className="rounded-2xl border border-border/60 bg-card p-4">
+          <div
+            key={i}
+            ref={(el) => {
+              questionRefs.current[i] = el;
+            }}
+            className="scroll-mt-20 rounded-2xl border border-border/60 bg-card p-4"
+          >
             <div className="mb-3 flex items-start justify-between gap-2">
               <p className="text-sm font-medium">
                 {i + 1}. {q.question}

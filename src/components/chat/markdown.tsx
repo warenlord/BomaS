@@ -1,5 +1,8 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import rehypeHighlight from "rehype-highlight";
 import { cn } from "@/lib/utils";
 
 const components: Components = {
@@ -18,14 +21,24 @@ const components: Components = {
     <code className={cn("rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]", className)} {...props} />
   ),
   pre: ({ className, ...props }) => (
-    <pre className={cn("mb-3 overflow-x-auto rounded-lg bg-muted p-3 text-sm", className)} {...props} />
+    <pre
+      className={cn(
+        "mb-3 overflow-x-auto rounded-lg text-sm [&_.hljs]:block [&_.hljs]:rounded-lg [&_.hljs]:p-3",
+        className,
+      )}
+      {...props}
+    />
   ),
 };
 
 export function Markdown({ children }: { children: string }) {
   return (
     <div className="text-sm leading-relaxed">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex, rehypeHighlight]}
+        components={components}
+      >
         {children}
       </ReactMarkdown>
     </div>

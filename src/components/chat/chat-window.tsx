@@ -5,11 +5,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { AlertCircle, FileText, Sparkles, ListChecks, Layers, NotebookPen, FileStack, ClipboardCheck } from "lucide-react";
+import {
+  AlertCircle,
+  FileText,
+  BookOpen,
+  Sparkles,
+  ListChecks,
+  Layers,
+  NotebookPen,
+  FileStack,
+  ClipboardCheck,
+} from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { MessageInput } from "@/components/chat/message-input";
 import { SuggestionChips } from "@/components/chat/suggestion-chips";
+import { DocumentPanel, type DocumentChunk } from "@/components/chat/document-panel";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +42,7 @@ export function ChatWindow({
   conversationId,
   documentId,
   documentTitle,
+  documentChunks,
   initialMessages,
   autoSendText,
   greeting,
@@ -37,16 +50,34 @@ export function ChatWindow({
   conversationId: string;
   documentId?: string | null;
   documentTitle?: string | null;
+  documentChunks?: DocumentChunk[];
   initialMessages: ChatUIMessage[];
   autoSendText?: string;
   greeting?: string;
 }) {
   const [input, setInput] = useState("");
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [highlightedChunk, setHighlightedChunk] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const autoSentRef = useRef(false);
   const router = useRouter();
 
-  const { messages, sendMessage, status, error } = useChat<ChatUIMessage>({
+  function openDocumentAt(chunkIndex: number) {
+    setHighlightedChunk(chunkIndex);
+    setPanelOpen(true);
+  }
+
+  useEffect(() => {
+    if (!panelOpen || highlightedChunk === null) return;
+    // Petit délai pour laisser le panneau (Sheet) finir son animation
+    // d'ouverture avant de calculer la position de scroll.
+    const timeout = setTimeout(() => {
+      document.getElementById(`chunk-${highlightedChunk}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+    return () => clearTimeout(timeout);
+  }, [panelOpen, highlightedChunk]);
+
+  const { messages, sendMessage, regenerate, status, error } = useChat<ChatUIMessage>({
     id: conversationId,
     messages: initialMessages,
     transport: new DefaultChatTransport({
@@ -79,6 +110,19 @@ export function ChatWindow({
     const text = input;
     setInput("");
     sendMessage({ text });
+  }
+
+  async function handleFeedback(messageId: string, feedback: "up" | "down") {
+    try {
+      await fetch(`/api/messages/${messageId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback }),
+      });
+    } catch {
+      // Silencieux : le retour visuel local (icône active) suffit même si
+      // l'enregistrement échoue, ce n'est pas une action critique.
+    }
   }
 
   if (isEmpty) {
@@ -123,30 +167,53 @@ export function ChatWindow({
           <span />
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-            <Sparkles className="size-3.5" />
-            Créer avec cette discussion
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            {TOOLS_FROM_DISCUSSION.map((tool) => (
-              <DropdownMenuItem
-                key={tool.href}
-                render={
-                  <Link href={`/tools/${tool.href}?conversationId=${conversationId}`}>
-                    <tool.icon className="size-4" />
-                    {tool.label}
-                  </Link>
-                }
-              />
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          {documentChunks && documentChunks.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setPanelOpen(true)}>
+              <BookOpen className="size-3.5" />
+              Voir le document
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+              <Sparkles className="size-3.5" />
+              Créer avec cette discussion
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              {TOOLS_FROM_DISCUSSION.map((tool) => (
+                <DropdownMenuItem
+                  key={tool.href}
+                  render={
+                    <Link href={`/tools/${tool.href}?conversationId=${conversationId}`}>
+                      <tool.icon className="size-4" />
+                      {tool.label}
+                    </Link>
+                  }
+                />
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+
+      {documentChunks && (
+        <Sheet open={panelOpen} onOpenChange={setPanelOpen}>
+          <SheetContent side="right" className="w-full p-0 sm:max-w-md lg:max-w-lg">
+            <DocumentPanel title={documentTitle ?? "Document"} chunks={documentChunks} highlightedChunk={highlightedChunk} />
+          </SheetContent>
+        </Sheet>
+      )}
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            onRegenerate={(id) => regenerate({ messageId: id })}
+            onFeedback={handleFeedback}
+            onCitationClick={documentChunks ? openDocumentAt : undefined}
+          />
         ))}
         <div ref={bottomRef} />
       </div>

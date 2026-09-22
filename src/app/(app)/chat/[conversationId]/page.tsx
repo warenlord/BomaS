@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getConversation, getConversationMessages } from "@/lib/chat/queries";
+import { getDocumentChunksForDisplay } from "@/lib/documents/queries";
 import { toUIMessages } from "@/lib/chat/format";
 import { ChatWindow } from "@/components/chat/chat-window";
 
@@ -25,13 +26,14 @@ export default async function ChatConversationPage({
   const messages = await getConversationMessages(supabase, conversationId);
 
   let documentTitle: string | null = null;
+  let documentChunks: { chunk_index: number; content: string }[] | undefined;
   if (conversation.document_id) {
-    const { data: document } = await supabase
-      .from("documents")
-      .select("title")
-      .eq("id", conversation.document_id)
-      .single();
+    const [{ data: document }, chunks] = await Promise.all([
+      supabase.from("documents").select("title").eq("id", conversation.document_id).single(),
+      getDocumentChunksForDisplay(supabase, conversation.document_id),
+    ]);
     documentTitle = document?.title ?? null;
+    documentChunks = chunks;
   }
 
   const firstName = (user.user_metadata?.full_name as string | undefined)?.split(" ")[0];
@@ -41,6 +43,7 @@ export default async function ChatConversationPage({
       conversationId={conversation.id}
       documentId={conversation.document_id}
       documentTitle={documentTitle}
+      documentChunks={documentChunks}
       initialMessages={toUIMessages(messages)}
       autoSendText={messages.length === 0 ? autoSend : undefined}
       greeting={firstName ? `Qu'est-ce qu'on révise aujourd'hui, ${firstName} ?` : undefined}
