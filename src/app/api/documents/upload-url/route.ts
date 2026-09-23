@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserSubscription } from "@/lib/billing/subscription";
 import { countReadyDocuments } from "@/lib/documents/queries";
 import { hasEnoughCredits } from "@/lib/credits/ledger";
+import { isFileTooLarge, MAX_UPLOAD_FILE_SIZE_BYTES } from "@/lib/documents/limits";
 import type { DocumentFileType } from "@/lib/types/database.types";
 
 const MIME_TO_TYPE: Record<string, DocumentFileType> = {
@@ -26,11 +27,19 @@ export async function POST(req: Request) {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const { fileName, mimeType } = (await req.json()) as { fileName: string; mimeType: string };
+  const { fileName, mimeType, fileSize } = (await req.json()) as {
+    fileName: string;
+    mimeType: string;
+    fileSize?: number;
+  };
 
   const fileType = MIME_TO_TYPE[mimeType];
   if (!fileType) {
     return Response.json({ error: "UNSUPPORTED_FILE_TYPE" }, { status: 400 });
+  }
+
+  if (typeof fileSize === "number" && isFileTooLarge(fileSize)) {
+    return Response.json({ error: "FILE_TOO_LARGE", maxSizeBytes: MAX_UPLOAD_FILE_SIZE_BYTES }, { status: 413 });
   }
 
   if (!(await hasEnoughCredits(supabase, user.id, "document_analysis"))) {

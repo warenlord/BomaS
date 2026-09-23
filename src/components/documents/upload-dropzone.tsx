@@ -6,19 +6,24 @@ import { toast } from "sonner";
 import { UploadCloud, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { isFileTooLarge, MAX_UPLOAD_FILE_SIZE_BYTES } from "@/lib/documents/limits";
 
 const ACCEPTED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
+const MAX_SIZE_MB = Math.round(MAX_UPLOAD_FILE_SIZE_BYTES / (1024 * 1024));
+
 const ERROR_MESSAGES: Record<string, string> = {
   UNAUTHORIZED: "Tu dois être connecté pour importer un document.",
-  INSUFFICIENT_CREDITS: "Crédits insuffisants pour analyser ce document (5 crédits requis).",
+  INSUFFICIENT_CREDITS: "Crédits insuffisants pour analyser ce document.",
   UNSUPPORTED_FILE_TYPE: "Format non supporté. Utilise un PDF ou un fichier Word (.docx).",
+  FILE_TOO_LARGE: `Ce fichier dépasse la taille maximale de ${MAX_SIZE_MB} Mo.`,
   PDF_LIMIT_REACHED: "Tu as atteint la limite de documents de ton plan. Passe à un plan supérieur pour en ajouter davantage.",
   SIGN_FAILED: "Impossible de préparer l'envoi. Réessaie.",
   DOWNLOAD_FAILED: "L'envoi du fichier a échoué. Réessaie.",
+  NO_EXTRACTABLE_TEXT: "Aucun texte exploitable n'a été trouvé dans ce fichier.",
   INGESTION_FAILED: "L'analyse du document a échoué. Réessaie avec un autre fichier.",
 };
 
@@ -49,13 +54,17 @@ export function UploadDropzone({
       toast.error(ERROR_MESSAGES.UNSUPPORTED_FILE_TYPE);
       return;
     }
+    if (isFileTooLarge(file.size)) {
+      toast.error(ERROR_MESSAGES.FILE_TOO_LARGE);
+      return;
+    }
 
     setIsUploading(true);
     try {
       const urlRes = await fetch("/api/documents/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type, fileSize: file.size }),
       });
       const urlData = await urlRes.json();
       if (!urlRes.ok) {
@@ -84,14 +93,16 @@ export function UploadDropzone({
       });
       const processData = await processRes.json();
       if (!processRes.ok) {
-        toast.error(ERROR_MESSAGES[processData.error] ?? "Une erreur est survenue.");
+        toast.error(processData.message ?? ERROR_MESSAGES[processData.error] ?? "Une erreur est survenue.");
         return;
       }
 
       if (onUploaded) {
         onUploaded({ id: processData.document.id, title: processData.document.title });
       } else {
-        toast.success(`"${processData.document.title}" a été analysé avec succès.`);
+        toast.success(
+          `"${processData.document.title}" a été analysé avec succès (${processData.creditsCharged} crédits).`,
+        );
         router.refresh();
       }
     } catch {
@@ -150,13 +161,19 @@ export function UploadDropzone({
         <>
           <Loader2 className={cn("animate-spin text-primary", compact ? "size-5" : "size-6")} />
           <p className="text-sm font-medium">Analyse en cours...</p>
-          {!compact && <p className="text-xs text-muted-foreground">Cela peut prendre jusqu&apos;à une minute.</p>}
+          {!compact && (
+            <p className="text-xs text-muted-foreground">
+              Quelques secondes pour un petit document, plusieurs minutes pour un gros.
+            </p>
+          )}
         </>
       ) : (
         <>
           <UploadCloud className={cn("text-primary", compact ? "size-5" : "size-6")} />
           <p className="text-sm font-medium">Dépose un PDF ou un fichier Word</p>
-          <p className="text-xs text-muted-foreground">ou clique pour choisir un fichier (5 crédits)</p>
+          <p className="text-xs text-muted-foreground">
+            ou clique pour choisir un fichier (à partir de 5 crédits, max {MAX_SIZE_MB} Mo)
+          </p>
         </>
       )}
     </div>

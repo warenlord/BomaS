@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
+import { isFileTooLarge, MAX_UPLOAD_FILE_SIZE_BYTES } from "@/lib/documents/limits";
 import type { ChatUIMessage } from "@/lib/chat/format";
 import type { PickerDocument } from "@/components/tools/document-picker";
 
@@ -48,6 +49,8 @@ const ACCEPTED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
+
+const MAX_SIZE_MB = Math.round(MAX_UPLOAD_FILE_SIZE_BYTES / (1024 * 1024));
 
 export function ChatWindow({
   conversationId,
@@ -124,12 +127,16 @@ export function ChatWindow({
       toast.error("Format non supporté. Utilise un PDF ou un fichier Word (.docx).");
       return;
     }
+    if (isFileTooLarge(file.size)) {
+      toast.error(`Ce fichier dépasse la taille maximale de ${MAX_SIZE_MB} Mo.`);
+      return;
+    }
     setIsUploading(true);
     try {
       const urlRes = await fetch("/api/documents/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type, fileSize: file.size }),
       });
       const urlData = await urlRes.json();
       if (!urlRes.ok) {
@@ -153,7 +160,7 @@ export function ChatWindow({
       });
       const processData = await processRes.json();
       if (!processRes.ok) {
-        toast.error("L'analyse du document a échoué. Réessaie avec un autre fichier.");
+        toast.error(processData.message ?? "L'analyse du document a échoué. Réessaie avec un autre fichier.");
         return;
       }
 

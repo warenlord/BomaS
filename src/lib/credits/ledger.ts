@@ -27,8 +27,16 @@ export async function hasEnoughCredits(
   userId: string,
   feature: CreditFeature,
 ): Promise<boolean> {
+  return hasEnoughCreditsAmount(supabase, userId, CREDIT_COSTS[feature]);
+}
+
+export async function hasEnoughCreditsAmount(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  amount: number,
+): Promise<boolean> {
   const wallet = await getWallet(supabase, userId);
-  return wallet.balance >= CREDIT_COSTS[feature];
+  return wallet.balance >= amount;
 }
 
 /**
@@ -42,8 +50,21 @@ export async function deductCredits(
   feature: CreditFeature,
   options?: { referenceId?: string; description?: string },
 ): Promise<number> {
-  const amount = CREDIT_COSTS[feature];
+  return deductCreditsAmount(supabase, userId, CREDIT_COSTS[feature], feature, options);
+}
 
+/**
+ * Variante avec un montant explicite plutôt que dérivé de CREDIT_COSTS —
+ * pour les actions au tarif variable (ex : analyse de document, dont le coût
+ * dépend de sa taille réelle, connue seulement après traitement partiel).
+ */
+export async function deductCreditsAmount(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  amount: number,
+  feature: CreditFeature,
+  options?: { referenceId?: string; description?: string },
+): Promise<number> {
   const { data, error } = await supabase.rpc("deduct_credits", {
     p_user_id: userId,
     p_amount: amount,

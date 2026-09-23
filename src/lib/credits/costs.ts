@@ -26,3 +26,17 @@ export const CREDIT_FEATURE_LABELS: Record<CreditFeature, string> = {
 export function creditCost(feature: CreditFeature): number {
   return CREDIT_COSTS[feature];
 }
+
+/**
+ * Coût réel de l'analyse d'un document, par palier selon le nombre de
+ * morceaux générés après découpage (connu seulement après extraction, avant
+ * les embeddings). Un document de 300 pages ne coûte pas la même chose à
+ * traiter (temps, risque de timeout) qu'un de 30 — CREDIT_COSTS.document_analysis
+ * reste le tarif plancher affiché avant upload ("à partir de X crédits").
+ */
+export function documentAnalysisCost(chunkCount: number): number {
+  if (chunkCount <= 150) return CREDIT_COSTS.document_analysis;
+  if (chunkCount <= 400) return 10;
+  if (chunkCount <= 800) return 20;
+  return 30;
+}

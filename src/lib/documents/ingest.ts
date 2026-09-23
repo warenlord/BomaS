@@ -1,59 +1,44 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/types/database.types";
 import { extractText } from "@/lib/documents/extract";
-import { chunkText } from "@/lib/documents/chunk";
+import { chunkText, type TextChunk } from "@/lib/documents/chunk";
 import { embedTexts } from "@/lib/ai/embeddings";
 
+export interface PreparedDocument {
+  pageCount: number | null;
+  chunks: TextChunk[];
+}
+
 /**
- * Pipeline complet d'ingestion d'un document : extraction du texte, découpage,
- * calcul des embeddings et insertion des chunks. Met à jour le statut du
- * document tout au long du traitement.
+ * Étape 1 (bon marché) : extraction du texte + découpage, sans appel OpenAI.
+ * Le nombre de morceaux obtenu ici sert à calculer le tarif réel de
+ * l'analyse (voir documentAnalysisCost) avant de lancer l'étape coûteuse.
  */
-export async function ingestDocument(
+export async function prepareDocumentChunks(fileBuffer: Buffer, fileType: "pdf" | "docx"): Promise<PreparedDocument> {
+  const { text, pageCount } = await extractText(fileBuffer, fileType);
+  return { pageCount, chunks: chunkText(text) };
+}
+
+/**
+ * Étape 2 (coûteuse) : calcule les embeddings et insère les morceaux. À
+ * n'appeler qu'après avoir débité le tarif réel — cette étape ne gère plus
+ * elle-même le statut du document ni les crédits, laissés à l'appelant qui
+ * orchestre les deux étapes.
+ */
+export async function embedAndStoreChunks(
   supabase: SupabaseClient<Database>,
   documentId: string,
-  fileBuffer: Buffer,
-  fileType: "pdf" | "docx",
+  chunks: TextChunk[],
 ): Promise<void> {
-  await supabase.from("documents").update({ status: "processing" }).eq("id", documentId);
+  const embeddings = await embedTexts(chunks.map((c) => c.content));
 
-  try {
-    const { text, pageCount } = await extractText(fileBuffer, fileType);
-    const chunks = chunkText(text);
+  const rows = chunks.map((chunk, i) => ({
+    document_id: documentId,
+    chunk_index: chunk.index,
+    content: chunk.content,
+    embedding: embeddings[i],
+  }));
 
-    if (chunks.length === 0) {
-      const message = "Aucun texte exploitable n'a été trouvé dans ce fichier.";
-      await supabase.from("documents").update({ status: "error", error_message: message }).eq("id", documentId);
-      // On lève quand même une exception (plutôt qu'un retour silencieux) pour
-      // que l'appelant sache que l'ingestion a échoué et ne débite/ne garde
-      // pas de crédits déjà réservés pour un document resté en erreur.
-      throw new Error(message);
-    }
-
-    const embeddings = await embedTexts(chunks.map((c) => c.content));
-
-    const rows = chunks.map((chunk, i) => ({
-      document_id: documentId,
-      chunk_index: chunk.index,
-      content: chunk.content,
-      embedding: embeddings[i],
-    }));
-
-    const { error: insertError } = await supabase.from("document_chunks").insert(rows);
-    if (insertError) throw insertError;
-
-    await supabase
-      .from("documents")
-      .update({ status: "ready", page_count: pageCount })
-      .eq("id", documentId);
-  } catch (err) {
-    await supabase
-      .from("documents")
-      .update({
-        status: "error",
-        error_message: err instanceof Error ? err.message : "Erreur inconnue lors du traitement du document.",
-      })
-      .eq("id", documentId);
-    throw err;
-  }
+  const { error } = await supabase.from("document_chunks").insert(rows);
+  if (error) throw error;
 }

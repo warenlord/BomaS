@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/reset-credits",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-stuck-documents",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
