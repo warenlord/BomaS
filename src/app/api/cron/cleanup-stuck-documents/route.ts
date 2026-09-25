@@ -10,6 +10,13 @@ const STUCK_THRESHOLD_MINUTES = 10;
  * (voir /api/documents/process). Ce cron repère ces documents fantômes,
  * rembourse les crédits déjà débités s'il y en a, et les marque en erreur
  * pour que l'étudiant ne reste pas devant un import qui ne finira jamais.
+ *
+ * La bascule de statut se fait EN MÊME TEMPS que la sélection (un seul
+ * UPDATE ... WHERE status = 'processing' ... RETURNING) plutôt qu'un
+ * SELECT suivi d'UPDATE séparés : ça réclame chaque document de façon
+ * atomique, pour qu'une exécution du cron qui chevauche la précédente (un
+ * déclenchement manuel pendant le tick planifié, par ex.) ne puisse pas
+ * retrouver le même document encore "processing" et le rembourser deux fois.
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -20,18 +27,19 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
   const threshold = new Date(Date.now() - STUCK_THRESHOLD_MINUTES * 60 * 1000).toISOString();
 
-  const { data: stuckDocuments, error } = await supabase
+  const { data: claimedDocuments, error } = await supabase
     .from("documents")
-    .select("id, user_id, title")
+    .update({ status: "error", error_message: "Le traitement a pris trop de temps et a été interrompu." })
     .eq("status", "processing")
-    .lt("updated_at", threshold);
+    .lt("updated_at", threshold)
+    .select("id, user_id, title");
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
   let refunded = 0;
-  for (const doc of stuckDocuments ?? []) {
+  for (const doc of claimedDocuments ?? []) {
     const { data: transaction } = await supabase
       .from("credit_transactions")
       .select("amount")
@@ -47,12 +55,7 @@ export async function GET(req: Request) {
       });
       refunded += 1;
     }
-
-    await supabase
-      .from("documents")
-      .update({ status: "error", error_message: "Le traitement a pris trop de temps et a été interrompu." })
-      .eq("id", doc.id);
   }
 
-  return Response.json({ cleaned: stuckDocuments?.length ?? 0, refunded });
+  return Response.json({ cleaned: claimedDocuments?.length ?? 0, refunded });
 }

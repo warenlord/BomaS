@@ -29,6 +29,21 @@ export async function POST(req: Request) {
   if (!conversationId) {
     return Response.json({ error: "MISSING_CONVERSATION" }, { status: 400 });
   }
+
+  // Vérifié explicitement plutôt que de compter sur RLS pour no-oper
+  // silencieusement les écritures : sans ça, un conversationId invalide ou
+  // appartenant à un autre utilisateur laissait quand même le message
+  // streamer et le crédit se débiter, pour un message qui n'était jamais
+  // réellement enregistré nulle part.
+  const { data: conversation } = await supabase
+    .from("conversations")
+    .select("user_id, document_ids, document_id")
+    .eq("id", conversationId)
+    .single();
+  if (!conversation || conversation.user_id !== user.id) {
+    return Response.json({ error: "CONVERSATION_NOT_FOUND" }, { status: 404 });
+  }
+
   if (!(await hasEnoughCredits(supabase, user.id, "chat"))) {
     return Response.json({ error: "INSUFFICIENT_CREDITS" }, { status: 402 });
   }
@@ -42,11 +57,12 @@ export async function POST(req: Request) {
   }
 
   if (userText) {
-    await supabase.from("messages").insert({
+    const { error: insertError } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       role: "user",
       content: userText,
     });
+    if (insertError) console.error("User message insert failed", conversationId, insertError);
 
     if (userMessages.length === 1) {
       void maybeRenameConversation(supabase, conversationId, userText);
@@ -67,19 +83,15 @@ export async function POST(req: Request) {
   if (documentIds !== undefined) {
     const requestedIds = [...new Set(documentIds)];
     documents = requestedIds.length > 0 ? await getDocumentsByIds(supabase, user.id, requestedIds) : [];
-    await supabase
+    const { error: updateError } = await supabase
       .from("conversations")
       .update({ document_ids: documents.map((d) => d.id), document_id: documents[0]?.id ?? null })
       .eq("id", conversationId);
+    if (updateError) console.error("Conversation document_ids update failed", conversationId, updateError);
   } else {
-    const { data: conversation } = await supabase
-      .from("conversations")
-      .select("document_ids, document_id")
-      .eq("id", conversationId)
-      .single();
-    const existingIds = conversation?.document_ids?.length
+    const existingIds = conversation.document_ids?.length
       ? conversation.document_ids
-      : conversation?.document_id
+      : conversation.document_id
         ? [conversation.document_id]
         : [];
     documents = existingIds.length > 0 ? await getDocumentsByIds(supabase, user.id, existingIds) : [];
@@ -105,13 +117,14 @@ export async function POST(req: Request) {
     // lissage, la réponse semble apparaître d'un bloc plutôt que "s'écrire".
     experimental_transform: smoothStream({ delayInMs: 15, chunking: "word" }),
     onFinish: async ({ text }) => {
-      await supabase.from("messages").insert({
+      const { error: assistantInsertError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         role: "assistant",
         content: text,
         citations: citations.length > 0 ? citations : null,
         credits_used: 1,
       });
+      if (assistantInsertError) console.error("Assistant message insert failed", conversationId, assistantInsertError);
 
       try {
         await deductCredits(supabase, user.id, "chat", { referenceId: conversationId });
@@ -122,7 +135,11 @@ export async function POST(req: Request) {
         console.error("Chat credit deduction failed", conversationId, err);
       }
 
-      await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
+      const { error: touchError } = await supabase
+        .from("conversations")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", conversationId);
+      if (touchError) console.error("Conversation updated_at touch failed", conversationId, touchError);
     },
   });
 

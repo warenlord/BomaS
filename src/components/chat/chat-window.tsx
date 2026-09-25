@@ -52,6 +52,15 @@ const ACCEPTED_TYPES = [
 
 const MAX_SIZE_MB = Math.round(MAX_UPLOAD_FILE_SIZE_BYTES / (1024 * 1024));
 
+const UPLOAD_ERROR_MESSAGES: Record<string, string> = {
+  UNAUTHORIZED: "Tu dois être connecté pour importer un document.",
+  INSUFFICIENT_CREDITS: "Crédits insuffisants pour analyser ce document.",
+  UNSUPPORTED_FILE_TYPE: "Format non supporté. Utilise un PDF ou un fichier Word (.docx).",
+  FILE_TOO_LARGE: `Ce fichier dépasse la taille maximale de ${MAX_SIZE_MB} Mo.`,
+  PDF_LIMIT_REACHED: "Tu as atteint la limite de documents de ton plan. Passe à un plan supérieur pour en ajouter davantage.",
+  SIGN_FAILED: "Impossible de préparer l'envoi. Réessaie.",
+};
+
 export function ChatWindow({
   conversationId,
   initialAttachedDocuments,
@@ -100,26 +109,41 @@ export function ChatWindow({
     return () => clearTimeout(timeout);
   }, [panelOpen, highlighted]);
 
-  async function persistAttachedDocuments(next: PickerDocument[]) {
-    await fetch(`/api/conversations/${conversationId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ documentIds: next.map((d) => d.id) }),
-    });
-    router.refresh();
+  async function persistAttachedDocuments(next: PickerDocument[], previous: PickerDocument[]) {
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentIds: next.map((d) => d.id) }),
+      });
+      if (!res.ok) {
+        // On revient à l'état précédent : sans ça, les étiquettes affichées
+        // pouvaient rester désynchronisées de ce qui est vraiment persisté
+        // (document_ids) jusqu'à un rechargement complet de la page.
+        setAttachedDocuments(previous);
+        toast.error("Impossible de mettre à jour les documents attachés. Réessaie.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setAttachedDocuments(previous);
+      toast.error("Erreur réseau, réessaie.");
+    }
   }
 
   function attachDocument(doc: PickerDocument) {
     if (documentIds.includes(doc.id)) return;
+    const previous = attachedDocuments;
     const next = [...attachedDocuments, doc];
     setAttachedDocuments(next);
-    void persistAttachedDocuments(next);
+    void persistAttachedDocuments(next, previous);
   }
 
   function detachDocument(id: string) {
+    const previous = attachedDocuments;
     const next = attachedDocuments.filter((d) => d.id !== id);
     setAttachedDocuments(next);
-    void persistAttachedDocuments(next);
+    void persistAttachedDocuments(next, previous);
   }
 
   async function uploadAndAttach(file: File) {
@@ -140,7 +164,7 @@ export function ChatWindow({
       });
       const urlData = await urlRes.json();
       if (!urlRes.ok) {
-        toast.error("Impossible de préparer l'envoi. Réessaie.");
+        toast.error(UPLOAD_ERROR_MESSAGES[urlData.error] ?? "Une erreur est survenue.");
         return;
       }
 
