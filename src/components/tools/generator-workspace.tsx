@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useObject } from "@ai-sdk/react";
 import type { DeepPartial } from "ai";
 import type { z } from "zod";
-import { toast } from "sonner";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,36 +45,21 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
 
   const allDocuments = [...documents, ...extraDocuments];
 
+  // Généré côté client avant l'appel, comme une clé d'idempotence : le
+  // serveur l'utilise comme id de la ligne generated_content qu'il persiste
+  // lui-même dans le onFinish du flux (voir /api/generate/[type]), donc le
+  // client n'a plus besoin d'un second appel pour connaître cet id.
+  const pendingContentId = useRef<string | null>(null);
+
   const { object, submit, isLoading, error } = useObject({
     api: `/api/generate/${type}`,
     schema,
-    onFinish: async ({ object: finalObject, error: parseError }) => {
-      if (!finalObject || parseError) return;
-
-      try {
-        const res = await fetch("/api/generated-content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type,
-            documentIds: selectedIds,
-            conversationId: includeConversation ? conversationSource?.id : undefined,
-            content: finalObject,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setSavedId(data.id);
-          if (data.warning === "INSUFFICIENT_CREDITS_NOT_CHARGED") {
-            toast.warning("Solde de crédits insuffisant : ce contenu n'a pas pu être décompté correctement.");
-          }
-          // Le crédit vient d'être débité côté serveur : on rafraîchit la
-          // jauge affichée dans la sidebar sans perdre le résultat déjà généré.
-          router.refresh();
-        }
-      } catch {
-        toast.error("Le contenu a été généré mais n'a pas pu être sauvegardé.");
-      }
+    onFinish: ({ object: finalObject, error: parseError }) => {
+      if (!finalObject || parseError || !pendingContentId.current) return;
+      setSavedId(pendingContentId.current);
+      // Le crédit vient d'être débité côté serveur : on rafraîchit la jauge
+      // affichée dans la sidebar sans perdre le résultat déjà généré.
+      router.refresh();
     },
   });
 
@@ -85,7 +69,9 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
 
   function handleGenerate() {
     setSavedId(null);
+    pendingContentId.current = crypto.randomUUID();
     submit({
+      contentId: pendingContentId.current,
       documentIds: usingDocuments ? selectedIds : undefined,
       conversationId: includeConversation ? conversationSource?.id : undefined,
       text: usingSource ? undefined : text,

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { generateObject } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import { chatModel } from "@/lib/ai/openai";
@@ -60,8 +61,14 @@ export async function POST(req: Request) {
     return Response.json({ error: "NO_SOURCE_TEXT" }, { status: 400 });
   }
 
+  // Généré avant le débit (et réutilisé comme id de la ligne insérée plus
+  // bas) : donne au cron de nettoyage une clé fiable pour repérer une
+  // transaction "usage" sans generated_content correspondant (timeout
+  // plateforme entre le débit et l'insertion).
+  const contentId = randomUUID();
+
   try {
-    await deductCredits(supabase, user.id, "exam");
+    await deductCredits(supabase, user.id, "exam", { referenceId: contentId });
   } catch (err) {
     if (err instanceof InsufficientCreditsError) {
       return Response.json({ error: "INSUFFICIENT_CREDITS" }, { status: 402 });
@@ -92,6 +99,7 @@ export async function POST(req: Request) {
   const { data: saved, error: insertError } = await supabase
     .from("generated_content")
     .insert({
+      id: contentId,
       user_id: user.id,
       document_id: documentIds[0] ?? null,
       document_ids: documentIds,

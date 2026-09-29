@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addCredits } from "@/lib/credits/ledger";
+import { isAuthorizedCronRequest } from "@/lib/cron/auth";
 
 const STUCK_THRESHOLD_MINUTES = 10;
 
@@ -19,8 +20,7 @@ const STUCK_THRESHOLD_MINUTES = 10;
  * retrouver le même document encore "processing" et le rembourser deux fois.
  */
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 

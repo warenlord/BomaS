@@ -1,12 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAuthorizedCronRequest } from "@/lib/cron/auth";
 
 /**
  * Appelé quotidiennement par le cron Vercel (voir vercel.json). Renouvelle le
  * quota de crédits de tous les portefeuilles dont la période est échue.
  */
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCronRequest(req)) {
     return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 

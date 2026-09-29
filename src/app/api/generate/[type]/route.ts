@@ -2,7 +2,8 @@ import { streamObject } from "ai";
 import { createClient } from "@/lib/supabase/server";
 import { chatModel } from "@/lib/ai/openai";
 import { GENERATORS } from "@/lib/ai/generators";
-import { hasEnoughCredits } from "@/lib/credits/ledger";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
+import { deductCredits, hasEnoughCredits, InsufficientCreditsError } from "@/lib/credits/ledger";
 import { resolveSource } from "@/lib/ai/source";
 import { isTextTooLong, MAX_PASTED_TEXT_LENGTH } from "@/lib/ai/limits";
 import type { GeneratedContentType } from "@/lib/types/database.types";
@@ -10,9 +11,18 @@ import type { GeneratedContentType } from "@/lib/types/database.types";
 export const maxDuration = 120;
 
 /**
- * Ne fait que streamer l'objet généré. La persistance en base et le débit de
- * crédits n'ont lieu qu'une fois l'objet complet reçu côté client (voir
- * /api/generated-content), pour ne jamais facturer un flux interrompu.
+ * Streame l'objet généré vers le client (pour l'affichage progressif), mais
+ * la persistance en base ET le débit de crédits se font ici, côté serveur,
+ * dans le onFinish de streamObject — qui s'exécute dès que le modèle a fini,
+ * indépendamment de ce que fait le client ensuite.
+ *
+ * Avant, ces deux étapes étaient déclenchées par un second appel volontaire
+ * du client (POST /api/generated-content) une fois le flux reçu en entier.
+ * Rien n'obligeait ce second appel à avoir lieu : il suffisait de ne jamais
+ * le faire pour obtenir des générations illimitées et gratuites. Le
+ * `contentId` (généré côté client, comme une clé d'idempotence) permet au
+ * client de connaître l'id du contenu sans dépendre de la réponse de ce
+ * second appel, qui n'existe plus.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
@@ -33,12 +43,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
   }
 
   const body = (await req.json()) as {
+    contentId?: string;
     documentIds?: string[];
     conversationId?: string;
     text?: string;
     questionCount?: 10 | 20 | 50;
     durationMinutes?: number;
   };
+
+  if (!body.contentId) {
+    return Response.json({ error: "MISSING_CONTENT_ID" }, { status: 400 });
+  }
+  const contentId = body.contentId;
 
   const documentIds = body.documentIds ?? [];
   const usingSource = documentIds.length > 0 || Boolean(body.conversationId);
@@ -55,7 +71,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
   if (!resolved.ok) {
     return Response.json({ error: resolved.error }, { status: 404 });
   }
-  const { sourceText } = resolved;
+  const { sourceText, title: sourceTitle } = resolved;
 
   if (!sourceText.trim()) {
     return Response.json({ error: "NO_SOURCE_TEXT" }, { status: 400 });
@@ -72,6 +88,40 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     schema: generator.schema,
     system,
     prompt,
+    onFinish: async ({ object, error }) => {
+      if (!object || error) {
+        console.error("Generation failed to finish", type, contentId, error);
+        return;
+      }
+
+      const title = (object as { title?: string }).title?.trim() || sourceTitle || "Contenu généré";
+
+      const { error: insertError } = await supabase.from("generated_content").insert({
+        id: contentId,
+        user_id: user.id,
+        document_id: documentIds[0] ?? null,
+        document_ids: documentIds,
+        type: type as GeneratedContentType,
+        title,
+        content: object,
+        credits_used: CREDIT_COSTS[generator.feature],
+      });
+
+      if (insertError) {
+        console.error("Generated content insert failed", type, contentId, insertError);
+        return;
+      }
+
+      try {
+        await deductCredits(supabase, user.id, generator.feature, { referenceId: contentId });
+      } catch (err) {
+        if (!(err instanceof InsufficientCreditsError)) throw err;
+        // Une course entre requêtes concurrentes a épuisé le solde entre le
+        // hasEnoughCredits plus haut et cette étape : le contenu reste
+        // sauvegardé (le travail est déjà fait), simplement non facturé.
+        console.error("Insufficient credits at charge time", type, contentId, err);
+      }
+    },
   });
 
   return result.toTextStreamResponse();

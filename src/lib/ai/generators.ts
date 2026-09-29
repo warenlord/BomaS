@@ -18,13 +18,12 @@ export interface GeneratorDefinition {
 /**
  * QCM, examen et analyse de mémoire sont volontairement absents de cette
  * table : ils ont leurs propres routes dédiées (/api/generate/qcm,
- * /api/generate/exam, /api/generate/memoire-analysis). Pour QCM/examen,
- * c'est pour rédiger le corrigé côté serveur avant tout envoi au client. Pour
- * l'analyse de mémoire, c'est parce que son tarif dépend de la taille réelle
- * du document (voir memoireAnalysisCost), calculée avant génération — un flux
- * que ce type générique (streaming, débit après coup) ne permet pas. Les
- * inclure ici permettrait aussi à /api/generated-content d'accepter un
- * contenu fabriqué par le client lui-même, contournant ces protections.
+ * /api/generate/exam, /api/generate/memoire-analysis) qui génèrent en une
+ * fois (generateObject, pas de streaming) pour pouvoir rédiger le corrigé
+ * côté serveur (QCM/examen) ou calculer un tarif dépendant de la taille
+ * réelle du document avant génération (mémoire — voir memoireAnalysisCost).
+ * Les types listés ici sont streamés via /api/generate/[type], qui persiste
+ * et facture lui-même dans le onFinish du flux, côté serveur.
  */
 export const GENERATORS: Partial<Record<GeneratedContentType, GeneratorDefinition>> = {
   flashcards: {

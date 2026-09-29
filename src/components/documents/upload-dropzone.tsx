@@ -7,6 +7,7 @@ import { UploadCloud, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { isFileTooLarge, MAX_UPLOAD_FILE_SIZE_BYTES } from "@/lib/documents/limits";
+import { CREDIT_COSTS } from "@/lib/credits/costs";
 
 const ACCEPTED_TYPES = [
   "application/pdf",
@@ -172,7 +173,8 @@ export function UploadDropzone({
           <UploadCloud className={cn("text-primary", compact ? "size-5" : "size-6")} />
           <p className="text-sm font-medium">Dépose un PDF ou un fichier Word</p>
           <p className="text-xs text-muted-foreground">
-            ou clique pour choisir un fichier (à partir de 5 crédits, max {MAX_SIZE_MB} Mo)
+            ou clique pour choisir un fichier (à partir de {CREDIT_COSTS.document_analysis} crédits, max{" "}
+            {MAX_SIZE_MB} Mo)
           </p>
         </>
       )}
