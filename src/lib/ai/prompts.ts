@@ -200,6 +200,8 @@ export function memoireAnalysisPrompt(sourceText: string) {
     system: GENERATOR_SYSTEM_PROMPT,
     prompt: `Analyse ce mémoire/document académique en profondeur : points forts, points faibles, qualité de la structure, qualité de la méthodologie, recommandations concrètes d'amélioration, et une note globale sur 20.
 
+IMPORTANT : tu es un correcteur/évaluateur, pas un rédacteur. Ne réécris JAMAIS le mémoire, ne produis aucune version corrigée ou reformulée d'un passage, et ne rédige pas de contenu que l'étudiant pourrait copier-coller à la place du sien. Chaque point fort/faible doit rester une observation critique concise (ce qui va ou ne va pas, et pourquoi) — jamais un paragraphe de remplacement. Les recommandations décrivent QUOI améliorer et POURQUOI, sans fournir le texte déjà rédigé à la place de l'étudiant.
+
 Contenu du mémoire :
 """
 ${sourceText}

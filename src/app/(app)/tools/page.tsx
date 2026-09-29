@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ListChecks, Layers, NotebookPen, FileStack, ClipboardCheck } from "lucide-react";
+import { ListChecks, Layers, NotebookPen, FileStack, ClipboardCheck, GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getQuickStats } from "@/lib/stats/queries";
@@ -13,35 +13,42 @@ const TOOLS = [
     icon: ListChecks,
     title: "QCM",
     description: "10, 20 ou 50 questions avec corrections détaillées.",
-    cost: CREDIT_COSTS.qcm,
+    costLabel: `${CREDIT_COSTS.qcm} crédits`,
   },
   {
     href: "/tools/flashcards",
     icon: Layers,
     title: "Flashcards",
     description: "Des cartes recto/verso pour mémoriser rapidement.",
-    cost: CREDIT_COSTS.flashcards,
+    costLabel: `${CREDIT_COSTS.flashcards} crédits`,
   },
   {
     href: "/tools/summary",
     icon: FileStack,
     title: "Résumé",
     description: "Un résumé clair et les points clés à retenir.",
-    cost: CREDIT_COSTS.summary,
+    costLabel: `${CREDIT_COSTS.summary} crédits`,
   },
   {
     href: "/tools/revision-sheet",
     icon: NotebookPen,
     title: "Fiche de révision",
     description: "Une fiche structurée par sections, prête à réviser.",
-    cost: CREDIT_COSTS.revision_sheet,
+    costLabel: `${CREDIT_COSTS.revision_sheet} crédits`,
   },
   {
     href: "/tools/exam",
     icon: ClipboardCheck,
     title: "Examen blanc",
     description: "Un examen chronométré avec corrigés types.",
-    cost: CREDIT_COSTS.exam,
+    costLabel: `${CREDIT_COSTS.exam} crédits`,
+  },
+  {
+    href: "/tools/memoire-analysis",
+    icon: GraduationCap,
+    title: "Analyse de mémoire",
+    description: "Points forts/faibles, structure, méthodologie et note sur 20.",
+    costLabel: `à partir de ${CREDIT_COSTS.memoire_analysis} crédits`,
   },
 ];
 
@@ -73,7 +80,7 @@ export default async function ToolsPage() {
             </div>
             <p className="font-medium">{tool.title}</p>
             <p className="text-sm text-muted-foreground">{tool.description}</p>
-            <p className="text-xs font-medium text-primary">{tool.cost} crédits</p>
+            <p className="text-xs font-medium text-primary">{tool.costLabel}</p>
           </Link>
         ))}
       </div>

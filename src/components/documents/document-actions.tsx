@@ -10,6 +10,7 @@ import {
   Layers,
   NotebookPen,
   ClipboardCheck,
+  GraduationCap,
   MoreVertical,
   Trash2,
 } from "lucide-react";
@@ -97,6 +98,15 @@ export function DocumentActions({ documentId, ready }: { documentId: string; rea
             <Link href={`/tools/exam?documentId=${documentId}`}>
               <ClipboardCheck className="size-4" />
               Préparer un examen
+            </Link>
+          }
+        />
+        <DropdownMenuItem
+          disabled={!ready}
+          render={
+            <Link href={`/tools/memoire-analysis?documentId=${documentId}`}>
+              <GraduationCap className="size-4" />
+              Analyser (mémoire)
             </Link>
           }
         />

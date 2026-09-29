@@ -35,6 +35,7 @@ export async function resolveSource(
   supabase: SupabaseClient<Database>,
   userId: string,
   input: SourceInput,
+  maxChars = MAX_SOURCE_CHARS,
 ): Promise<ResolvedSource> {
   const documentIds = input.documentIds ?? [];
   const hasDocuments = documentIds.length > 0;
@@ -54,7 +55,7 @@ export async function resolveSource(
       return { ok: false, error: "CONVERSATION_NOT_FOUND" };
     }
     conversationTitle = conversation.title;
-    const budget = hasDocuments ? Math.floor(MAX_SOURCE_CHARS / 2) : MAX_SOURCE_CHARS;
+    const budget = hasDocuments ? Math.floor(maxChars / 2) : maxChars;
     const conversationText = await getConversationText(supabase, conversation.id, budget);
     if (conversationText) parts.push(`--- Discussion : ${conversation.title} ---\n${conversationText}`);
   }
@@ -64,7 +65,7 @@ export async function resolveSource(
     if (documents.length !== documentIds.length) {
       return { ok: false, error: "DOCUMENT_NOT_FOUND" };
     }
-    const budget = hasConversation ? Math.floor(MAX_SOURCE_CHARS / 2) : MAX_SOURCE_CHARS;
+    const budget = hasConversation ? Math.floor(maxChars / 2) : maxChars;
     const documentsText = await getDocumentsFullText(supabase, documents, budget);
     if (documentsText) parts.push(documentsText);
   }

@@ -40,3 +40,16 @@ export function documentAnalysisCost(chunkCount: number): number {
   if (chunkCount <= 800) return 20;
   return 30;
 }
+
+/**
+ * Coût réel de l'analyse de mémoire, par palier selon la taille du texte
+ * source réellement envoyé au modèle (~2 500 caractères par page dense).
+ * CREDIT_COSTS.memoire_analysis reste le tarif plancher affiché avant
+ * génération ("à partir de 30 crédits").
+ */
+export function memoireAnalysisCost(sourceCharCount: number): number {
+  if (sourceCharCount <= 125_000) return CREDIT_COSTS.memoire_analysis; // ~50 pages
+  if (sourceCharCount <= 250_000) return 45; // ~100 pages
+  if (sourceCharCount <= 375_000) return 60; // ~150 pages
+  return 80;
+}
