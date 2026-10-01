@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { SidebarConversation } from "@/components/layout/app-sidebar";
+import type { SidebarConversation } from "@/lib/chat/conversation-groups";
 
 export function ConversationItem({ conversation }: { conversation: SidebarConversation }) {
   const pathname = usePathname();

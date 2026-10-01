@@ -7,6 +7,7 @@ import { CreditMeter } from "@/components/credits/credit-meter";
 import { UserMenu } from "@/components/layout/user-menu";
 import { ConversationItem } from "@/components/layout/conversation-item";
 import { StreakBadge } from "@/components/layout/streak-badge";
+import { groupConversationsByDate, type SidebarConversation } from "@/lib/chat/conversation-groups";
 import type { CreditUsageStats } from "@/lib/credits/ledger";
 import { cn } from "@/lib/utils";
 
@@ -16,38 +17,6 @@ const NAV_ITEMS = [
   { href: "/tools", label: "Outils", icon: ListChecks },
   { href: "/billing", label: "Crédits", icon: CreditCard },
 ] as const;
-
-export interface SidebarConversation {
-  id: string;
-  title: string;
-  document_id: string | null;
-  pinned: boolean;
-  updated_at: string;
-}
-
-function groupByDate(conversations: SidebarConversation[]) {
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const sevenDaysAgo = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const groups: { label: string; items: SidebarConversation[] }[] = [
-    { label: "Aujourd'hui", items: [] },
-    { label: "7 derniers jours", items: [] },
-    { label: "Ce mois-ci", items: [] },
-    { label: "Plus ancien", items: [] },
-  ];
-
-  for (const c of conversations) {
-    const updatedAt = new Date(c.updated_at);
-    if (updatedAt >= startOfToday) groups[0].items.push(c);
-    else if (updatedAt >= sevenDaysAgo) groups[1].items.push(c);
-    else if (updatedAt >= startOfMonth) groups[2].items.push(c);
-    else groups[3].items.push(c);
-  }
-
-  return groups.filter((g) => g.items.length > 0);
-}
 
 export function AppSidebar({
   stats,
@@ -68,7 +37,7 @@ export function AppSidebar({
 
   const pinned = conversations.filter((c) => c.pinned);
   const unpinned = conversations.filter((c) => !c.pinned);
-  const groups = groupByDate(unpinned);
+  const groups = groupConversationsByDate(unpinned);
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 bg-sidebar text-sidebar-foreground md:flex">

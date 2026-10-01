@@ -66,26 +66,30 @@ export async function POST(req: Request) {
           .eq("user_id", payment.user_id);
         if (subError) console.error("Subscription activation failed", payment.id, subError);
 
+        // Le nouveau quota s'AJOUTE au solde existant plutôt que de l'écraser :
+        // un étudiant qui a encore des crédits et choisit de payer pour un
+        // abonnement ne doit pas les perdre dans l'opération. (Le renouvellement
+        // mensuel AUTOMATIQUE, lui, reset bien le quota chaque période — voir
+        // reset_due_credit_wallets — ce qui reste cohérent avec un
+        // abonnement qui se renouvelle sans action du client.)
+        const { error: creditError } = await supabase.rpc("add_credits", {
+          p_user_id: payment.user_id,
+          p_amount: plan.monthly_credits,
+          p_type: "subscription_renewal",
+          p_reference_id: payment.id,
+          p_description: `Changement de plan vers ${plan.name}`,
+        });
+        if (creditError) console.error("Credit grant failed", payment.id, creditError);
+
         const { error: walletError } = await supabase
           .from("credit_wallets")
           .update({
-            balance: plan.monthly_credits,
             monthly_allowance: plan.monthly_credits,
             period_start: periodStart,
             period_end: periodEnd,
           })
           .eq("user_id", payment.user_id);
-        if (walletError) console.error("Credit wallet reset failed", payment.id, walletError);
-
-        const { error: txError } = await supabase.from("credit_transactions").insert({
-          user_id: payment.user_id,
-          amount: plan.monthly_credits,
-          balance_after: plan.monthly_credits,
-          type: "subscription_renewal",
-          reference_id: payment.id,
-          description: `Changement de plan vers ${plan.name}`,
-        });
-        if (txError) console.error("Credit transaction log failed", payment.id, txError);
+        if (walletError) console.error("Credit wallet period update failed", payment.id, walletError);
       }
     } else if (payment.kind === "credit_pack" && payment.credit_pack_id) {
       const { data: pack } = await supabase

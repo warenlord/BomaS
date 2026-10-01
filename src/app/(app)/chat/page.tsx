@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MessageSquarePlus, MessageSquare, FileText } from "lucide-react";
+import { MessageSquarePlus, MessageSquare, Pin } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCachedConversations } from "@/lib/chat/queries";
-import { formatDateShort } from "@/lib/format";
+import { groupConversationsByDate } from "@/lib/chat/conversation-groups";
+import { ConversationItem } from "@/components/layout/conversation-item";
 
 export default async function ChatHistoryPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const conversations = await getCachedConversations(user.id);
+  const pinned = conversations.filter((c) => c.pinned);
+  const groups = groupConversationsByDate(conversations.filter((c) => !c.pinned));
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -30,26 +33,32 @@ export default async function ChatHistoryPage() {
           <p className="text-sm">Aucune conversation pour le moment.</p>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {conversations.map((c) => (
-            <li key={c.id}>
-              <Link
-                href={`/chat/${c.id}`}
-                className="flex items-center justify-between rounded-xl border border-border/60 bg-card px-4 py-3 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex items-center gap-3">
-                  {c.document_id ? (
-                    <FileText className="size-4 shrink-0 text-primary" />
-                  ) : (
-                    <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-                  )}
-                  <span className="line-clamp-1 text-sm font-medium">{c.title}</span>
-                </div>
-                <span className="shrink-0 text-xs text-muted-foreground">{formatDateShort(c.updated_at)}</span>
-              </Link>
-            </li>
+        <div className="space-y-4">
+          {pinned.length > 0 && (
+            <div>
+              <p className="mb-1.5 flex items-center gap-1 px-1 text-xs font-medium text-muted-foreground">
+                <Pin className="size-3" />
+                Épinglées
+              </p>
+              <div className="space-y-1 rounded-xl border border-border/60 bg-card p-1.5">
+                {pinned.map((c) => (
+                  <ConversationItem key={c.id} conversation={c} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {groups.map((group) => (
+            <div key={group.label}>
+              <p className="mb-1.5 px-1 text-xs font-medium text-muted-foreground">{group.label}</p>
+              <div className="space-y-1 rounded-xl border border-border/60 bg-card p-1.5">
+                {group.items.map((c) => (
+                  <ConversationItem key={c.id} conversation={c} />
+                ))}
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

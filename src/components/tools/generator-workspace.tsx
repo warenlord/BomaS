@@ -145,6 +145,13 @@ export function GeneratorWorkspace<Schema extends z.ZodType>({
           Générer
         </Button>
 
+        {isLoading && !object && (
+          <p className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-3.5 animate-spin" />
+            Génération en cours...
+          </p>
+        )}
+
         {error && (
           <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
             Erreur lors de la génération. Vérifie ton solde de crédits ou réessaie.
