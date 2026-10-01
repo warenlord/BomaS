@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MessageSquarePlus, MessageSquare, Pin } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCachedConversations } from "@/lib/chat/queries";
 import { groupConversationsByDate } from "@/lib/chat/conversation-groups";
+import { listReadyDocuments } from "@/lib/documents/queries";
 import { ConversationItem } from "@/components/layout/conversation-item";
 import { NewConversationPrompt } from "@/components/chat/new-conversation-prompt";
 
@@ -11,7 +13,11 @@ export default async function ChatHistoryPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const conversations = await getCachedConversations(user.id);
+  const supabase = await createClient();
+  const [conversations, documents] = await Promise.all([
+    getCachedConversations(user.id),
+    listReadyDocuments(supabase, user.id),
+  ]);
   const pinned = conversations.filter((c) => c.pinned);
   const groups = groupConversationsByDate(conversations.filter((c) => !c.pinned));
   const firstName = (user.user_metadata?.full_name as string | undefined)?.split(" ")[0];
@@ -23,7 +29,7 @@ export default async function ChatHistoryPage() {
           directement un écran de nouvelle discussion plutôt que de dupliquer
           la liste déjà visible à gauche. */}
       <div className="hidden md:block">
-        <NewConversationPrompt greeting={greeting} />
+        <NewConversationPrompt greeting={greeting} documents={documents} />
       </div>
 
       {/* Mobile : pas de sidebar, /chat reste donc le seul moyen de parcourir
