@@ -32,7 +32,22 @@ export async function listConversations(supabase: SupabaseClient<Database>, user
     .order("updated_at", { ascending: false });
 
   if (error) throw error;
-  return data;
+  if (data.length === 0) return data;
+
+  // Une discussion est créée dès qu'on visite /chat/new, avant le premier
+  // message : on masque celles qui n'ont jamais reçu de message pour éviter
+  // d'encombrer l'historique de "Nouvelle conversation" vides.
+  const { data: withMessages, error: messagesError } = await supabase
+    .from("messages")
+    .select("conversation_id")
+    .in(
+      "conversation_id",
+      data.map((c) => c.id),
+    );
+  if (messagesError) throw messagesError;
+
+  const nonEmptyIds = new Set(withMessages.map((m) => m.conversation_id));
+  return data.filter((c) => nonEmptyIds.has(c.id));
 }
 
 /**
