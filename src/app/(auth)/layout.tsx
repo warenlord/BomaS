@@ -1,13 +1,11 @@
 import Link from "next/link";
-import { GraduationCap } from "lucide-react";
+import Image from "next/image";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-8 bg-muted/30 px-4 py-12">
       <Link href="/" className="flex items-center gap-2 font-semibold">
-        <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <GraduationCap className="size-5" />
-        </span>
+        <Image src="/logo.png" alt="" width={42} height={36} className="h-9 w-auto" priority />
         <span className="text-xl">BomaSchool</span>
       </Link>
 

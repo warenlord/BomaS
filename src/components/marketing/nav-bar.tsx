@@ -1,15 +1,13 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { GraduationCap } from "lucide-react";
 
 export function MarketingNavBar() {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <GraduationCap className="size-5" />
-          </span>
+          <Image src="/logo.png" alt="" width={38} height={32} className="h-8 w-auto" priority />
           <span className="text-lg">BomaSchool</span>
         </Link>
 
