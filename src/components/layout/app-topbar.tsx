@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Zap } from "lucide-react";
 import { UserMenu } from "@/components/layout/user-menu";
 import { formatCredits } from "@/lib/format";
@@ -16,7 +15,6 @@ export function AppTopbar({
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/95 px-4 backdrop-blur md:hidden">
       <Link href="/chat" className="flex items-center gap-2 font-semibold">
-        <Image src="/logo.png" alt="" width={28} height={28} className="size-7" priority />
         BomaSchool
       </Link>
 
