@@ -5,7 +5,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-8 bg-muted/30 px-4 py-12">
       <Link href="/" className="flex items-center gap-2 font-semibold">
-        <Image src="/logo.png" alt="" width={42} height={36} className="h-9 w-auto" priority />
+        <Image src="/logo.png" alt="" width={36} height={36} className="size-9" priority />
         <span className="text-xl">BomaSchool</span>
       </Link>
 

@@ -44,7 +44,7 @@ export function AppSidebar({
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 bg-sidebar text-sidebar-foreground md:flex">
       <div className="flex h-16 items-center justify-between px-4">
         <Link href="/chat" className="flex items-center gap-2 font-semibold">
-          <Image src="/logo.png" alt="" width={38} height={32} className="h-8 w-auto" priority />
+          <Image src="/logo.png" alt="" width={32} height={32} className="size-8" priority />
           BomaSchool
         </Link>
         {streak > 0 && <StreakBadge days={streak} />}
