@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     conversationId?: string;
     text?: string;
     questionCount?: 10 | 20 | 50;
+    territoryClaimId?: string;
   };
 
   const documentIds = body.documentIds ?? [];
@@ -46,6 +47,38 @@ export async function POST(req: Request) {
 
   if (!usingSource && isTextTooLong(body.text ?? "")) {
     return Response.json({ error: "TEXT_TOO_LONG", maxLength: MAX_PASTED_TEXT_LENGTH }, { status: 400 });
+  }
+
+  // Révision collective : une réclamation de territoire doit être active, à
+  // soi, et dans les délais avant de dépenser des crédits sur sa génération.
+  // On bloque aussi une seconde génération pour la même réclamation (sinon
+  // on pourrait régénérer jusqu'à tomber sur un QCM facile, en repayant à
+  // chaque fois).
+  if (body.territoryClaimId) {
+    const { data: claim, error: claimError } = await supabase
+      .from("territory_claims")
+      .select("id, user_id, status, deadline_at")
+      .eq("id", body.territoryClaimId)
+      .maybeSingle();
+
+    if (claimError || !claim) {
+      return Response.json({ error: "CLAIM_NOT_FOUND" }, { status: 404 });
+    }
+    if (claim.user_id !== user.id) {
+      return Response.json({ error: "NOT_YOUR_CLAIM" }, { status: 403 });
+    }
+    if (claim.status !== "in_progress" || new Date(claim.deadline_at) <= new Date()) {
+      return Response.json({ error: "CLAIM_EXPIRED" }, { status: 409 });
+    }
+
+    const { data: existing } = await supabase
+      .from("generated_content")
+      .select("id")
+      .eq("territory_claim_id", body.territoryClaimId)
+      .maybeSingle();
+    if (existing) {
+      return Response.json({ error: "ALREADY_GENERATED_FOR_CLAIM", id: existing.id }, { status: 409 });
+    }
   }
 
   const resolved = await resolveSource(supabase, user.id, {
@@ -109,11 +142,23 @@ export async function POST(req: Request) {
       title,
       content: object,
       credits_used: CREDIT_COSTS.qcm,
+      territory_claim_id: body.territoryClaimId ?? null,
     })
     .select("id")
     .single();
 
   if (insertError || !saved) {
+    if (insertError?.code === "23505") {
+      // Course gagnée par une autre requête concurrente entre notre contrôle
+      // d'existence (ligne 74) et cet insert : l'index unique sur
+      // generated_content.territory_claim_id a bloqué cette seconde ligne.
+      // On rembourse (rien à montrer pour un QCM qui n'existera jamais) et on
+      // signale au client de se rafraîchir plutôt qu'une erreur générique.
+      await addCredits(supabase, user.id, CREDIT_COSTS.qcm, "refund", {
+        description: "Remboursement : génération déjà existante pour cette réclamation",
+      });
+      return Response.json({ error: "ALREADY_GENERATED_FOR_CLAIM" }, { status: 409 });
+    }
     console.error("QCM insert failed", insertError);
     await addCredits(supabase, user.id, CREDIT_COSTS.qcm, "refund", { description: "Remboursement : sauvegarde QCM échouée" });
     return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });

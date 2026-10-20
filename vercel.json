@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/refund-orphaned-generations",
       "schedule": "*/20 * * * *"
+    },
+    {
+      "path": "/api/cron/expire-territory-claims",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

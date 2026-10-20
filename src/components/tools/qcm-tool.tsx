@@ -21,16 +21,21 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_SOURCE_TEXT: "Ajoute du texte ou choisis un document avec du contenu.",
   TEXT_TOO_LONG: "Le texte collé est trop long. Raccourcis-le ou utilise un document.",
   GENERATION_FAILED: "La génération a échoué. Réessaie.",
+  CLAIM_EXPIRED: "Le délai pour ce territoire est dépassé.",
+  CLAIM_NOT_FOUND: "Cette réclamation est introuvable.",
+  NOT_YOUR_CLAIM: "Ce territoire n'est pas réclamé par toi.",
 };
 
 export function QcmTool({
   documents,
   initialDocumentId,
   conversationSource,
+  territoryClaimId,
 }: {
   documents: PickerDocument[];
   initialDocumentId?: string;
   conversationSource?: ConversationSource | null;
+  territoryClaimId?: string;
 }) {
   const [questionCount, setQuestionCount] = useState<10 | 20 | 50>(10);
   const [text, setText] = useState("");
@@ -62,10 +67,18 @@ export function QcmTool({
           conversationId: includeConversation ? conversationSource?.id : undefined,
           text: usingSource ? undefined : text,
           questionCount,
+          territoryClaimId,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.error === "ALREADY_GENERATED_FOR_CLAIM") {
+          // Un QCM existe déjà pour cette réclamation (double clic, onglet
+          // dupliqué...) : on rafraîchit plutôt que d'en payer un second,
+          // la page serveur affichera directement ce QCM existant.
+          router.refresh();
+          return;
+        }
         setError(ERROR_MESSAGES[data.error] ?? "Une erreur est survenue.");
         return;
       }

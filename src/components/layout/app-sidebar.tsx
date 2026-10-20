@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SquarePen, FileText, ListChecks, CreditCard, Pin } from "lucide-react";
+import { SquarePen, FileText, ListChecks, Users, CreditCard, Pin } from "lucide-react";
 import { CreditMeter } from "@/components/credits/credit-meter";
 import { UserMenu } from "@/components/layout/user-menu";
 import { ConversationItem } from "@/components/layout/conversation-item";
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/chat/new", label: "Nouvelle conversation", icon: SquarePen },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/tools", label: "Outils", icon: ListChecks },
+  { href: "/groups", label: "Groupes", icon: Users },
   { href: "/billing", label: "Crédits", icon: CreditCard },
 ] as const;
 

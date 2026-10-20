@@ -17,10 +17,18 @@ interface Correction {
   explanation: string;
 }
 
+interface TerritoryResult {
+  counted: boolean;
+  reason: string;
+  stars: number | null;
+}
+
 export function QcmView({ quiz }: { quiz: RedactedQcm }) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [corrections, setCorrections] = useState<Correction[] | null>(null);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
+  const [territoryResult, setTerritoryResult] = useState<TerritoryResult | null>(null);
+  const [territoryError, setTerritoryError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const submitted = corrections !== null;
@@ -41,6 +49,8 @@ export function QcmView({ quiz }: { quiz: RedactedQcm }) {
       if (res.ok) {
         setResult({ score: data.score, total: data.total });
         setCorrections(data.corrections);
+        setTerritoryResult(data.territoryResult ?? null);
+        setTerritoryError(Boolean(data.territoryError));
       } else {
         toast.error("La correction a échoué. Réessaie.");
       }
@@ -63,6 +73,28 @@ export function QcmView({ quiz }: { quiz: RedactedQcm }) {
           <p className="text-sm text-muted-foreground">Score final</p>
         </div>
       )}
+
+      {territoryError && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-center text-sm text-destructive">
+          Ton score est enregistré, mais la mise à jour du territoire a échoué. Réessaie de recharger
+          la page ; si le problème persiste, le territoire redeviendra disponible automatiquement
+          après son délai.
+        </div>
+      )}
+
+      {territoryResult &&
+        (territoryResult.counted ? (
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4 text-center">
+            <p className="text-2xl">{"⭐".repeat(territoryResult.stars ?? 0)}</p>
+            <p className="text-sm text-muted-foreground">Territoire conquis !</p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-center text-sm text-destructive">
+            {territoryResult.reason === "DEADLINE_PASSED"
+              ? "Le délai de 24h est dépassé — ce territoire redevient disponible pour le groupe."
+              : "Ce territoire a déjà été résolu."}
+          </div>
+        ))}
 
       {quiz.questions.map((q, i) => {
         const correction = corrections?.[i];

@@ -39,15 +39,19 @@ export async function POST(req: Request) {
     0,
   );
 
-  const { error: insertError } = await supabase.from("qcm_attempts").insert({
-    generated_content_id: generatedContentId,
-    user_id: user.id,
-    score,
-    total,
-    answers,
-  });
+  const { data: attempt, error: insertError } = await supabase
+    .from("qcm_attempts")
+    .insert({
+      generated_content_id: generatedContentId,
+      user_id: user.id,
+      score,
+      total,
+      answers,
+    })
+    .select("id")
+    .single();
 
-  if (insertError) {
+  if (insertError || !attempt) {
     console.error("QCM attempt insert failed", generatedContentId, insertError);
     return Response.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
   }
@@ -59,5 +63,30 @@ export async function POST(req: Request) {
     explanation: q.explanation,
   }));
 
-  return Response.json({ score, total, corrections });
+  // Révision collective : si ce QCM provient d'une réclamation de
+  // territoire, on la clôture ici. Le RPC revérifie lui-même le délai
+  // (indépendamment du cron d'expiration) et verrouille la ligne pour
+  // qu'une double soumission ne compte jamais deux fois.
+  let territoryResult: { counted: boolean; reason: string; stars: number | null } | null = null;
+  // Distingue un échec RPC réel (ex: coupure DB passagère) d'un simple refus
+  // métier (DEADLINE_PASSED, ALREADY_RESOLVED...) : dans le premier cas, le
+  // score est bien enregistré mais le territoire reste "in_progress" sans
+  // qu'on le sache — le client doit pouvoir le signaler plutôt que de
+  // silencieusement n'afficher aucune bannière de territoire.
+  let territoryError = false;
+  if (generated.territory_claim_id) {
+    const { data: result, error: rpcError } = await supabase.rpc("complete_territory_claim", {
+      p_claim_id: generated.territory_claim_id,
+      p_qcm_attempt_id: attempt.id,
+      p_score_percent: (score / total) * 100,
+    });
+    if (rpcError) {
+      console.error("complete_territory_claim failed", generated.territory_claim_id, rpcError);
+      territoryError = true;
+    } else {
+      territoryResult = result?.[0] ?? null;
+    }
+  }
+
+  return Response.json({ score, total, corrections, territoryResult, territoryError });
 }

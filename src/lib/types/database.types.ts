@@ -1,6 +1,6 @@
 /**
- * Types de la base de données Supabase, écrits à la main pour correspondre à
- * `supabase/migrations/0001_init.sql`. À remplacer par le résultat de
+ * Types de la base de données Supabase, écrits à la main pour correspondre
+ * aux migrations sous `supabase/migrations/`. À remplacer par le résultat de
  * `supabase gen types typescript` une fois le projet Supabase réel créé.
  */
 
@@ -29,6 +29,7 @@ export type GeneratedContentType =
   | "memoire_analysis";
 export type PaymentKind = "subscription" | "credit_pack";
 export type PaymentStatus = "pending" | "success" | "failed" | "canceled";
+export type TerritoryClaimStatus = "in_progress" | "completed" | "expired";
 
 export interface Database {
   public: {
@@ -192,6 +193,7 @@ export interface Database {
           title: string;
           content: unknown;
           credits_used: number;
+          territory_claim_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["generated_content"]["Row"]>;
@@ -230,6 +232,47 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["payments"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["payments"]["Row"]>;
+        Relationships: [];
+      };
+      study_groups: {
+        Row: {
+          id: string;
+          name: string;
+          owner_id: string;
+          invite_code: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["study_groups"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["study_groups"]["Row"]>;
+        Relationships: [];
+      };
+      group_members: {
+        Row: {
+          id: string;
+          group_id: string;
+          user_id: string;
+          joined_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["group_members"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["group_members"]["Row"]>;
+        Relationships: [];
+      };
+      territory_claims: {
+        Row: {
+          id: string;
+          group_id: string;
+          subject: string;
+          user_id: string;
+          claimed_at: string;
+          deadline_at: string;
+          status: TerritoryClaimStatus;
+          qcm_attempt_id: string | null;
+          score_percent: number | null;
+          stars: number | null;
+          completed_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["territory_claims"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["territory_claims"]["Row"]>;
         Relationships: [];
       };
     };
@@ -271,6 +314,26 @@ export interface Database {
           content: string;
           similarity: number;
         }[];
+      };
+      create_study_group: {
+        Args: { p_name: string };
+        Returns: { group_id: string; invite_code: string }[];
+      };
+      get_group_preview: {
+        Args: { p_invite_code: string };
+        Returns: { group_id: string; name: string; member_count: number }[];
+      };
+      join_group: {
+        Args: { p_invite_code: string };
+        Returns: { group_id: string | null; reason: string }[];
+      };
+      claim_territory: {
+        Args: { p_group_id: string; p_subject: string; p_deadline_hours?: number };
+        Returns: { claim_id: string | null; deadline_at: string | null; reason: string }[];
+      };
+      complete_territory_claim: {
+        Args: { p_claim_id: string; p_qcm_attempt_id: string; p_score_percent: number };
+        Returns: { counted: boolean; reason: string; stars: number | null }[];
       };
     };
     Enums: Record<string, never>;
